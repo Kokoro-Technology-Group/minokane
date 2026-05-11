@@ -1,0 +1,500 @@
+---
+import Layout from "../layouts/Layout.astro";
+import QuestionInput from "../components/QuestionInput.astro";
+import OperationalizationChooser from "../components/OperationalizationChooser.astro";
+import ModularQuestionsView from "../components/ModularQuestionsView.astro";
+---
+
+<Layout>
+  <div class="page-wrapper">
+    <header class="page-header">
+      <h1>minokane</h1>
+      <p>Ambient superforecasting to operationalize questions about the future</p>
+    </header>
+
+    <!-- Original question (shown on step 2 and step 3) -->
+    <div class="step orig-q-step" id="step-orig" hidden>
+      <blockquote class="orig-q">
+        <span class="orig-q-label">Your question</span>
+        <p id="orig-q-text"></p>
+      </blockquote>
+    </div>
+
+    <!-- Step 1: Question Input -->
+    <div class="step" id="step-1">
+      <QuestionInput />
+    </div>
+
+    <!-- Step 2: Operationalization Chooser -->
+    <div class="step" id="step-2" hidden>
+      <OperationalizationChooser />
+    </div>
+
+    <!-- Step 3: Results -->
+    <div class="step" id="step-3" hidden>
+      <ModularQuestionsView />
+    </div>
+  </div>
+</Layout>
+
+<script>
+  import type {
+    ForecastSession,
+    OperationalizedQuestion,
+    OutcomeType,
+  } from "../scripts/api";
+  import { submitQuestion, selectOperationalization } from "../scripts/api";
+
+  const MAX_CANDIDATES = 3;
+
+  // ─── State ───────────────────────────────────────────────────────────────────
+  let currentSession: ForecastSession | null = null;
+  let selectedIndex: number | null = null;
+
+  // ─── DOM refs ────────────────────────────────────────────────────────────────
+  const stepOrig = document.getElementById("step-orig")!;
+  const origQText = document.getElementById("orig-q-text")!;
+  const step1 = document.getElementById("step-1")!;
+  const step2 = document.getElementById("step-2")!;
+  const step3 = document.getElementById("step-3")!;
+
+  const form = document.getElementById("question-form") as HTMLFormElement;
+  const submitBtn = document.getElementById("submit-btn") as HTMLButtonElement;
+  const questionLoading = document.getElementById("question-loading")!;
+  const questionError = document.getElementById("question-error")!;
+
+  const optionsList = document.getElementById("options-list")!;
+  const confirmBtn = document.getElementById("confirm-btn") as HTMLButtonElement;
+  const chooserError = document.getElementById("chooser-error")!;
+  const chooserLoading = document.getElementById("chooser-loading")!;
+  const userFeedbackInput = document.getElementById("user-feedback") as HTMLTextAreaElement;
+  const optionTemplate = document.getElementById("option-card-template") as HTMLTemplateElement;
+
+  const selectedQuestionCard = document.getElementById("selected-question-card")!;
+  const summaryCard = document.getElementById("summary-card")!;
+  const subQuestionsList = document.getElementById("sub-questions-list")!;
+  const resetBtn = document.getElementById("reset-btn")!;
+  const subQuestionTemplate = document.getElementById("sub-question-template") as HTMLTemplateElement;
+
+  // ─── Navigation ──────────────────────────────────────────────────────────────
+  function showStep(n: 1 | 2 | 3) {
+    step1.hidden = n !== 1;
+    step2.hidden = n !== 2;
+    step3.hidden = n !== 3;
+    stepOrig.hidden = n === 1;
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function showError(el: HTMLElement, msg: string) {
+    el.textContent = msg;
+    el.hidden = false;
+  }
+
+  function clearError(el: HTMLElement) {
+    el.textContent = "";
+    el.hidden = true;
+  }
+
+  // ─── Step 1: Submit question ──────────────────────────────────────────────────
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    clearError(questionError);
+
+    const rawQuestion = (form.raw_question as HTMLTextAreaElement).value.trim();
+    if (!rawQuestion) {
+      showError(questionError, "Please enter a forecast question.");
+      return;
+    }
+
+    const deadlineRaw = (form.deadline as HTMLInputElement).value;
+    const outcomeRaw = (form.outcome_description as HTMLInputElement).value.trim();
+
+    form.hidden = true;
+    questionLoading.hidden = false;
+    submitBtn.disabled = true;
+
+    try {
+      const session = await submitQuestion({
+        raw_question: rawQuestion,
+        deadline: deadlineRaw ? new Date(deadlineRaw).toISOString() : null,
+        outcome_description: outcomeRaw || null,
+      });
+
+      currentSession = session;
+      origQText.textContent = session.original_question.raw_question;
+      renderChooser(session);
+      showStep(2);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      form.hidden = false;
+      questionLoading.hidden = true;
+      submitBtn.disabled = false;
+      showError(questionError, `Error: ${msg}`);
+    }
+  });
+
+  // ─── Outcome editors ─────────────────────────────────────────────────────────
+  function renderOutcomeEditor(container: HTMLElement, opt: OperationalizedQuestion) {
+    container.innerHTML = "";
+    const t: OutcomeType = opt.outcome_type ?? "binary";
+
+    if (t === "date") {
+      const dateInput = document.createElement("input");
+      dateInput.type = "date";
+      dateInput.className = "outcome-value";
+      const first = (opt.outcome_options ?? [])[0] ?? "";
+      const m = first.match(/\d{4}-\d{2}-\d{2}/);
+      if (m) dateInput.value = m[0];
+      container.appendChild(dateInput);
+      return;
+    }
+
+    if (t === "numeric") {
+      const numInput = document.createElement("input");
+      numInput.type = "number";
+      numInput.step = "any";
+      numInput.className = "outcome-value";
+      const first = (opt.outcome_options ?? [])[0] ?? "";
+      const num = parseFloat(first);
+      if (!Number.isNaN(num)) numInput.value = String(num);
+      container.appendChild(numInput);
+
+      const unit = document.createElement("span");
+      unit.className = "outcome-unit";
+      unit.setAttribute("contenteditable", "true");
+      unit.textContent = opt.outcome_unit ?? "";
+      container.appendChild(unit);
+      return;
+    }
+
+    // binary / categorical
+    const p = document.createElement("p");
+    p.className = "field-text option-outcomes";
+    p.setAttribute("contenteditable", "true");
+    p.textContent = (opt.outcome_options ?? []).join(" / ");
+    container.appendChild(p);
+  }
+
+  function readOutcomeEditor(container: HTMLElement, opt: OperationalizedQuestion): {
+    outcome_options: string[];
+    outcome_unit: string | null;
+  } {
+    const t: OutcomeType = opt.outcome_type ?? "binary";
+
+    if (t === "date") {
+      const v = (container.querySelector(".outcome-value") as HTMLInputElement)?.value ?? "";
+      return { outcome_options: v ? [v] : [], outcome_unit: null };
+    }
+
+    if (t === "numeric") {
+      const v = (container.querySelector(".outcome-value") as HTMLInputElement)?.value ?? "";
+      const unit = (container.querySelector(".outcome-unit") as HTMLElement)?.innerText.trim() || null;
+      return { outcome_options: v ? [v] : [], outcome_unit: unit };
+    }
+
+    const p = container.querySelector(".option-outcomes") as HTMLElement | null;
+    const raw = p?.innerText ?? "";
+    return {
+      outcome_options: raw.split("/").map((s) => s.trim()).filter(Boolean),
+      outcome_unit: null,
+    };
+  }
+
+  // ─── Step 2: Render chooser ───────────────────────────────────────────────────
+  function renderChooser(session: ForecastSession) {
+    optionsList.innerHTML = "";
+    selectedIndex = null;
+    confirmBtn.disabled = true;
+    userFeedbackInput.value = "";
+    clearError(chooserError);
+
+    const options = session.operationalized_options.slice(0, MAX_CANDIDATES);
+
+    options.forEach((opt, idx) => {
+      const clone = optionTemplate.content.cloneNode(true) as DocumentFragment;
+      const radio = clone.querySelector(".option-radio") as HTMLInputElement;
+      const indexEl = clone.querySelector(".option-index")!;
+      const textEl = clone.querySelector(".option-text") as HTMLElement;
+      const toggleBtn = clone.querySelector(".option-toggle") as HTMLButtonElement;
+      const detailsEl = clone.querySelector(".option-details") as HTMLElement;
+      const summaryEl = clone.querySelector(".option-summary") as HTMLElement;
+      const criteriaEl = clone.querySelector(".option-criteria") as HTMLElement;
+      const sourceEl = clone.querySelector(".option-source") as HTMLElement;
+      const deadlineInput = clone.querySelector(".option-deadline") as HTMLInputElement;
+      const outcomeEditor = clone.querySelector(".outcome-editor") as HTMLElement;
+      const outcomeBadge = clone.querySelector(".outcome-type-badge") as HTMLElement;
+      const voidEl = clone.querySelector(".option-void") as HTMLElement;
+
+      radio.value = String(idx);
+      indexEl.textContent = `#${idx + 1}`;
+      textEl.textContent = opt.text;
+      criteriaEl.textContent = opt.resolution_criteria;
+      sourceEl.textContent = opt.resolution_source;
+      voidEl.textContent = opt.void_conditions;
+      outcomeBadge.textContent = opt.outcome_type ?? "binary";
+
+      // Date-only deadline (YYYY-MM-DD)
+      try {
+        const dt = new Date(opt.deadline);
+        if (!Number.isNaN(dt.getTime())) {
+          const y = dt.getUTCFullYear();
+          const m = String(dt.getUTCMonth() + 1).padStart(2, "0");
+          const d = String(dt.getUTCDate()).padStart(2, "0");
+          deadlineInput.value = `${y}-${m}-${d}`;
+        }
+      } catch {
+        deadlineInput.value = "";
+      }
+
+      renderOutcomeEditor(outcomeEditor, opt);
+
+      // Card selection via summary clicks (but not on the editable text or toggle)
+      summaryEl.addEventListener("click", (ev) => {
+        const target = ev.target as HTMLElement;
+        if (target.closest(".option-text") || target.closest(".option-toggle")) return;
+        if (target === radio) return;
+        radio.checked = true;
+        radio.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+      radio.addEventListener("change", () => {
+        if (radio.checked) {
+          selectedIndex = idx;
+          confirmBtn.disabled = false;
+        }
+      });
+
+      // Expand/collapse details
+      toggleBtn.addEventListener("click", (ev) => {
+        ev.stopPropagation();
+        const expanded = !detailsEl.hidden;
+        detailsEl.hidden = expanded;
+        toggleBtn.setAttribute("aria-expanded", String(!expanded));
+        toggleBtn.textContent = expanded ? "Details ▾" : "Details ▴";
+      });
+
+      optionsList.appendChild(clone);
+    });
+  }
+
+  // ─── Step 2: Confirm selection ────────────────────────────────────────────────
+  confirmBtn.addEventListener("click", async () => {
+    if (!currentSession || selectedIndex == null) return;
+    clearError(chooserError);
+
+    const checkedRadio = optionsList.querySelector<HTMLInputElement>(".option-radio:checked");
+    if (!checkedRadio) return;
+
+    const card = checkedRadio.closest(".option-card") as HTMLElement;
+    const deadlineInput = card.querySelector<HTMLInputElement>(".option-deadline")!;
+    const outcomeEditor = card.querySelector(".outcome-editor") as HTMLElement;
+    const idx = parseInt(checkedRadio.value, 10);
+    const originalOpt = currentSession.operationalized_options[idx];
+
+    const dateStr = deadlineInput.value;
+    const deadlineIso = dateStr
+      ? new Date(`${dateStr}T23:59:59Z`).toISOString()
+      : originalOpt.deadline;
+
+    const { outcome_options, outcome_unit } = readOutcomeEditor(outcomeEditor, originalOpt);
+
+    const selectedOption: OperationalizedQuestion = {
+      ...originalOpt,
+      text: (card.querySelector(".option-text") as HTMLElement).innerText.trim(),
+      resolution_criteria: (card.querySelector(".option-criteria") as HTMLElement).innerText.trim(),
+      resolution_source: (card.querySelector(".option-source") as HTMLElement).innerText.trim(),
+      deadline: deadlineIso,
+      outcome_type: originalOpt.outcome_type ?? "binary",
+      outcome_options,
+      outcome_unit,
+      void_conditions: (card.querySelector(".option-void") as HTMLElement).innerText.trim(),
+    };
+
+    const feedback = userFeedbackInput.value.trim() || null;
+
+    confirmBtn.disabled = true;
+    chooserLoading.hidden = false;
+
+    try {
+      const finalSession = await selectOperationalization(currentSession.id, selectedOption, feedback);
+      currentSession = finalSession;
+      renderResults(finalSession);
+      showStep(3);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      confirmBtn.disabled = false;
+      chooserLoading.hidden = true;
+      showError(chooserError, `Error: ${msg}`);
+    }
+  });
+
+  // ─── Step 3: Render results ───────────────────────────────────────────────────
+  function renderResults(session: ForecastSession) {
+    const sel = session.operationalized_options.find(
+      (o) => o.id === session.selected_operationalization_id,
+    ) ?? session.operationalized_options[0];
+
+    const outcomeRendered = (() => {
+      const t = sel?.outcome_type ?? "binary";
+      if (t === "numeric") {
+        const opts = (sel?.outcome_options ?? []).join(", ");
+        return sel?.outcome_unit ? `${opts} ${sel.outcome_unit}`.trim() : opts;
+      }
+      return (sel?.outcome_options ?? []).join(" / ");
+    })();
+
+    selectedQuestionCard.innerHTML = `
+      <h2>Operationalized question</h2>
+      <p><strong>${escapeHtml(sel?.text ?? "")}</strong></p>
+      <div class="meta-row">
+        <div class="meta-item">
+          <span class="meta-label">Resolution criteria</span>
+          <span class="meta-value">${escapeHtml(sel?.resolution_criteria ?? "")}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Resolution source</span>
+          <span class="meta-value">${escapeHtml(sel?.resolution_source ?? "")}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Deadline</span>
+          <span class="meta-value">${sel ? new Date(sel.deadline).toLocaleDateString() : ""}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Outcome (${escapeHtml(sel?.outcome_type ?? "binary")})</span>
+          <span class="meta-value">${escapeHtml(outcomeRendered)}</span>
+        </div>
+        <div class="meta-item">
+          <span class="meta-label">Void conditions</span>
+          <span class="meta-value">${escapeHtml(sel?.void_conditions ?? "")}</span>
+        </div>
+      </div>
+    `;
+
+    if (session.final_summary) {
+      summaryCard.innerHTML = `
+        <h2>Executive summary — James Harrington</h2>
+        <p>${escapeHtml(session.final_summary)}</p>
+      `;
+      summaryCard.hidden = false;
+    } else {
+      summaryCard.hidden = true;
+    }
+
+    subQuestionsList.innerHTML = "";
+    if (session.modular_sub_questions.length === 0) {
+      subQuestionsList.innerHTML =
+        '<p style="color: var(--color-text-muted); font-size:0.875rem;">This question was identified as atomic — no decomposition needed.</p>';
+    } else {
+      session.modular_sub_questions.forEach((sq) => {
+        const clone = subQuestionTemplate.content.cloneNode(true) as DocumentFragment;
+        (clone.querySelector(".sub-q-text")!).textContent = sq.text;
+        (clone.querySelector(".sub-q-explanation")!).textContent = sq.explanation;
+        (clone.querySelector(".tag--domain")!).textContent = sq.domain_tag;
+
+        const importanceTag = clone.querySelector(".tag--importance")!;
+        importanceTag.textContent = `Importance: ${sq.confidence_of_importance}`;
+        importanceTag.classList.add(`tag--importance-${sq.confidence_of_importance}`);
+
+        const likelihoodTag = clone.querySelector(".tag--likelihood")!;
+        likelihoodTag.textContent = `Likelihood: ${sq.llm_baseline_likelihood}`;
+        likelihoodTag.classList.add(`tag--likelihood-${sq.llm_baseline_likelihood}`);
+
+        subQuestionsList.appendChild(clone);
+      });
+    }
+  }
+
+  // ─── Reset ───────────────────────────────────────────────────────────────────
+  resetBtn.addEventListener("click", () => {
+    currentSession = null;
+    selectedIndex = null;
+    form.reset();
+    form.hidden = false;
+    questionLoading.hidden = true;
+    submitBtn.disabled = false;
+    clearError(questionError);
+    showStep(1);
+  });
+
+  function escapeHtml(str: string): string {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+</script>
+
+<style>
+  .page-wrapper {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 3rem 1.5rem 5rem;
+  }
+
+  .page-header {
+    width: 100%;
+    max-width: 760px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+  }
+
+  .page-header h1 {
+    font-size: 2rem;
+    font-weight: 300;
+    color: var(--color-primary);
+    letter-spacing: -0.02em;
+    margin: 0;
+  }
+
+  .page-header p {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: 0;
+    max-width: 480px;
+    text-align: right;
+  }
+
+  .step {
+    width: 100%;
+    max-width: 760px;
+  }
+
+  .step[hidden] { display: none; }
+
+  .orig-q-step {
+    margin-bottom: 1.5rem;
+  }
+
+  .orig-q {
+    margin: 0;
+    padding: 1rem 1.25rem;
+    background: var(--color-surface);
+    border-left: 3px solid var(--color-primary);
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .orig-q-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-text-muted);
+  }
+
+  .orig-q p {
+    margin: 0;
+    font-size: 1rem;
+    color: var(--color-text);
+    line-height: 1.45;
+  }
+</style>

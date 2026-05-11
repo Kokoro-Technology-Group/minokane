@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Minokane project
+.env
+node_modules/
+frontend/dist/
+frontend/.astro/
+backend/data/questions.json
+.claude/

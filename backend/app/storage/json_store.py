@@ -1,0 +1,29 @@
+import asyncio
+import json
+from pathlib import Path
+
+from app.models.schemas import ForecastSession
+
+_lock = asyncio.Lock()
+
+
+class JSONStore:
+    def __init__(self, file_path: str) -> None:
+        self.path = Path(file_path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        if not self.path.exists():
+            self.path.write_text("{}")
+
+    async def save_session(self, session: ForecastSession) -> None:
+        async with _lock:
+            data = json.loads(self.path.read_text())
+            data[session.id] = json.loads(session.model_dump_json())
+            self.path.write_text(json.dumps(data, indent=2))
+
+    async def get_session(self, session_id: str) -> ForecastSession | None:
+        async with _lock:
+            data = json.loads(self.path.read_text())
+        raw = data.get(session_id)
+        if raw is None:
+            return None
+        return ForecastSession.model_validate(raw)
