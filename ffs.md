@@ -1,5 +1,0 @@
-For tab completion, I'd prefer the delay to be much slower. It's too fast even on slow mode and has way more False Positives with few True Positives that I accept. Also, I'd like to be able to specify what type of files I want Tab to ignore (eg I want it for code but not markdown files. Ideally, I could add/remove individual files from a Tab Ignore List.
-
-Secondly, usage limits and updates are very opaque. I also can't see how much context I've used in the current chat/thread. Although I am surprised to find Gemini Flash to be surprisingly good at targeted frontend tasks. Yet for big system design or larger code changes, being able to see my context window would be helpful (although it's maybe confusing with the different model? again opaque and I don't know if y'all compact it down).
-
-Lastly, I don't understand why the application opens so many different windows (eg click on settings... another window separate from the main IDE; Agent Manager is also a separate window but it's unclear to me on the difference vs the side panel. I'd prefer just the side panel to have an Agent mode or something).
