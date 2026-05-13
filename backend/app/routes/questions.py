@@ -36,7 +36,7 @@ async def verify_api_key(
     api_key: str | None = Security(_api_key_header),
     settings: Settings = Depends(get_settings),
 ) -> str:
-    if api_key != settings.api_key:
+    if not settings.api_key or api_key != settings.api_key:
         raise HTTPException(status_code=403, detail="Invalid or missing X-API-Key header")
     return api_key
 

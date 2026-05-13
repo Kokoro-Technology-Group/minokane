@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     llm_temperature: float = 0.7
     llm_max_tokens: int = 4096
     data_file_path: str = "./data/questions.json"
-    api_key: str = "minokane-dev-key"
+    api_key: str = ""
 
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
