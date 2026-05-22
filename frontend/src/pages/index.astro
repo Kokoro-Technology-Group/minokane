@@ -225,7 +225,18 @@ import ModularQuestionsView from "../components/ModularQuestionsView.astro";
       const outcomeBadge = clone.querySelector(".outcome-type-badge") as HTMLElement;
       const voidEl = clone.querySelector(".option-void") as HTMLElement;
 
+      // Unique IDs for accessibility
+      const textId = `option-text-${idx}`;
+      const detailsId = `option-details-${idx}`;
+
+      textEl.id = textId;
+      detailsEl.id = detailsId;
+
       radio.value = String(idx);
+      radio.setAttribute("aria-labelledby", textId);
+
+      toggleBtn.setAttribute("aria-controls", detailsId);
+
       indexEl.textContent = `#${idx + 1}`;
       textEl.textContent = opt.text;
       criteriaEl.textContent = opt.resolution_criteria;
@@ -385,11 +396,24 @@ import ModularQuestionsView from "../components/ModularQuestionsView.astro";
       subQuestionsList.innerHTML =
         '<p style="color: var(--color-text-muted); font-size:0.875rem;">This question was identified as atomic — no decomposition needed.</p>';
     } else {
-      session.modular_sub_questions.forEach((sq) => {
+      session.modular_sub_questions.forEach((sq, idx) => {
         const clone = subQuestionTemplate.content.cloneNode(true) as DocumentFragment;
-        (clone.querySelector(".sub-q-text")!).textContent = sq.text;
-        (clone.querySelector(".sub-q-explanation")!).textContent = sq.explanation;
-        (clone.querySelector(".tag--domain")!).textContent = sq.domain_tag;
+
+        const textEl = clone.querySelector(".sub-q-text")!;
+        const explanationEl = clone.querySelector(".sub-q-explanation")!;
+        const domainTag = clone.querySelector(".tag--domain")!;
+
+        // Add unique IDs for sub-questions
+        const subqId = `subq-${idx}`;
+        const cardEl = clone.querySelector(".sub-q-card");
+        if (cardEl) {
+          cardEl.setAttribute("aria-labelledby", subqId);
+        }
+        textEl.id = subqId;
+
+        textEl.textContent = sq.text;
+        explanationEl.textContent = sq.explanation;
+        domainTag.textContent = sq.domain_tag;
 
         const importanceTag = clone.querySelector(".tag--importance")!;
         importanceTag.textContent = `Importance: ${sq.confidence_of_importance}`;
