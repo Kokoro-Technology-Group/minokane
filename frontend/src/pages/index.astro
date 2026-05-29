@@ -225,6 +225,14 @@ import ModularQuestionsView from "../components/ModularQuestionsView.astro";
       const outcomeBadge = clone.querySelector(".outcome-type-badge") as HTMLElement;
       const voidEl = clone.querySelector(".option-void") as HTMLElement;
 
+      // Assign unique IDs for accessibility bindings
+      const textId = `option-text-${idx}`;
+      const detailsId = `option-details-${idx}`;
+      textEl.id = textId;
+      detailsEl.id = detailsId;
+      radio.setAttribute("aria-labelledby", textId);
+      toggleBtn.setAttribute("aria-controls", detailsId);
+
       radio.value = String(idx);
       indexEl.textContent = `#${idx + 1}`;
       textEl.textContent = opt.text;
