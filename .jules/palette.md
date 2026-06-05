@@ -1,0 +1,3 @@
+## 2024-06-05 - Explicit IDs for Dynamically Rendered Components
+**Learning:** When using `<template>` elements to dynamically generate repetitive UI components (like the operationalization options in `index.astro`), explicitly assigning unique IDs during JS rendering is crucial to maintain accessibility bindings like `aria-labelledby` and `aria-controls`. Otherwise, these bindings break for cloned DOM nodes, reducing usability for screen reader users.
+**Action:** Always append unique identifiers (e.g. `-${index}`) to ID attributes when cloning and rendering DOM nodes from a template inside JS files.
