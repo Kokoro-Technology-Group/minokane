@@ -17,7 +17,8 @@ class JSONStore:
     async def save_session(self, session: ForecastSession) -> None:
         async with _lock:
             data = json.loads(self.path.read_text())
-            data[session.id] = json.loads(session.model_dump_json())
+            # Use model_dump(mode='json') to avoid unnecessary string serialization/parsing overhead
+            data[session.id] = session.model_dump(mode='json')
             self.path.write_text(json.dumps(data, indent=2))
 
     async def get_session(self, session_id: str) -> ForecastSession | None:
