@@ -1,0 +1,3 @@
+## 2024-06-19 - Accessibility for Repeated Template Content
+**Learning:** When using `<template>` elements to dynamically generate repetitive UI components in Astro (or any vanilla JS context), accessibility attributes like `aria-labelledby` and `aria-controls` break because IDs are duplicated or not uniquely mapped between the generated elements (like radio inputs, text blocks, details panels, and toggles).
+**Action:** Explicitly assign unique IDs (using loop indices or random hashes) during JS rendering when cloning from `<template>` to correctly establish ARIA relationships and maintain accessibility bindings.
