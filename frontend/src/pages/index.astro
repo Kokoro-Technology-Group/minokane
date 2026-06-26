@@ -233,6 +233,14 @@ import ModularQuestionsView from "../components/ModularQuestionsView.astro";
       voidEl.textContent = opt.void_conditions;
       outcomeBadge.textContent = opt.outcome_type ?? "binary";
 
+      // Accessibility bindings
+      const textId = `option-text-${opt.id || idx}`;
+      const detailsId = `option-details-${opt.id || idx}`;
+      textEl.id = textId;
+      radio.setAttribute("aria-labelledby", textId);
+      detailsEl.id = detailsId;
+      toggleBtn.setAttribute("aria-controls", detailsId);
+
       // Date-only deadline (YYYY-MM-DD)
       try {
         const dt = new Date(opt.deadline);
