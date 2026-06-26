@@ -66,6 +66,7 @@ def test_select_on_missing_session():
     assert response.status_code == 404
 
 
+@pytest.mark.live
 @pytest.mark.skipif(
     not get_settings().anthropic_api_key,
     reason="ANTHROPIC_API_KEY not set — skipping live LLM test",

@@ -7,10 +7,13 @@ introduces itself, and canned data fills the rest of the schema. This exercises
 the API/network/auth/reasoning-mode plumbing + the full LangGraph + storage +
 frontend path without burning a full pipeline's worth of tokens (~$0.13/run).
 
-Anthropic constraints honored here:
-- max_tokens > thinking.budget_tokens (1024 is Anthropic's minimum budget).
-- temperature must be unset (defaults to 1.0) when extended thinking is enabled.
-- AIMessage.content is a list of typed blocks when thinking is enabled — see
+Anthropic constraints honored here (Opus 4.7):
+- thinking={"type": "adaptive"} is the only supported on-mode — the legacy
+  {"type": "enabled", "budget_tokens": N} shape returns 400 on 4.7.
+- output_config={"effort": "low"} minimizes thinking + output spend for the
+  smoke test (replaces the old budget_tokens=1024 knob, which is gone on 4.7).
+- temperature / top_p / top_k are removed on 4.7 (don't pass them).
+- AIMessage.content is a list of typed blocks when thinking is on — see
   _extract_text below for the flattener.
 """
 
@@ -24,7 +27,6 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-TEST_THINKING_BUDGET = 1024
 TEST_MAX_TOKENS = 1500
 
 
@@ -38,7 +40,8 @@ def build_test_llm(model_id: str) -> ChatAnthropic:
         model=model_id,
         api_key=settings.anthropic_api_key,
         max_tokens=TEST_MAX_TOKENS,
-        thinking={"type": "enabled", "budget_tokens": TEST_THINKING_BUDGET},
+        thinking={"type": "adaptive"},
+        output_config={"effort": "low"},
     )
 
 

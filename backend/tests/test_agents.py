@@ -300,7 +300,8 @@ def test_build_test_llm_config():
         call_kwargs = MockChat.call_args[1]
         assert call_kwargs["model"] == "claude-opus-4-7"
         assert call_kwargs["max_tokens"] == 1500
-        assert call_kwargs["thinking"] == {"type": "enabled", "budget_tokens": 1024}
+        assert call_kwargs["thinking"] == {"type": "adaptive"}
+        assert call_kwargs["output_config"] == {"effort": "low"}
         assert "temperature" not in call_kwargs
 
 

@@ -12,10 +12,13 @@ An automated forecasting system that takes natural-language questions, operation
 
 | Tool | Required Version | Check Command | Install Docs |
 |------|-----------------|---------------|--------------|
+| Bash | 4.3+ | `bash --version` | macOS ships bash 3.2; install a modern bash with `brew install bash` ([Homebrew](https://brew.sh/)) |
 | Python | 3.12+ | `python3 --version` | [python.org](https://www.python.org/downloads/) |
 | Conda (Miniconda) | Latest | `conda --version` | [Miniconda Install](https://docs.anaconda.com/miniconda/install/) |
 | Node.js | v22.12+ | `node --version` | [nodejs.org](https://nodejs.org/) |
 | npm | 10+ | `npm --version` | Bundled with Node.js |
+
+> **macOS note:** `dev.sh` uses `wait -n` (bash 4.3+) to surface backend/frontend crashes. Stock macOS bash is 3.2 — without an upgrade you'll see `wait: -n: invalid option` and the script will exit immediately. `brew install bash` puts a modern bash at `/opt/homebrew/bin/bash`, which the `#!/usr/bin/env bash` shebang picks up automatically.
 
 ---
 
@@ -119,7 +122,7 @@ Open [http://localhost:4321](http://localhost:4321) in your browser.
 
 ### Light-touch smoke test (TEST mode)
 
-Type `TEST` (case-insensitive — also accepts `test`, `Test`, `  TEST  `) into the question input on [http://localhost:4321](http://localhost:4321). Each of the four personas (Mira, Marcus, Anika, James) makes **one** minimum-budget reasoning-mode Anthropic call to briefly introduce itself; canned data fills the rest of the schema. The full pipeline runs end-to-end — FastAPI routes, LangGraph state graph + interrupt, JSON store, frontend rendering — so any wiring failure (bad API key, network issue, broken reasoning-mode config, schema mismatch) surfaces immediately.
+Type `TEST` (case-insensitive — also accepts `test`, `Test`, `  TEST  `) into the question input on [http://localhost:4321](http://localhost:4321). Each of the four personas (Mira, Marcus, Anika, James) makes **one** low-effort adaptive-thinking Anthropic call to briefly introduce itself; canned data fills the rest of the schema. The full pipeline runs end-to-end — FastAPI routes, LangGraph state graph + interrupt, JSON store, frontend rendering — so any wiring failure (bad API key, network issue, broken reasoning-mode config, schema mismatch) surfaces immediately.
 
 - Cost per TEST run: roughly **$0.10–$0.15** (vs. multi-dollar full-pipeline cost).
 - Each persona's intro appears in the backend terminal as `[TEST mode] Message received. I'm <Name>; my focus is <focus>.`
@@ -189,7 +192,7 @@ All four personas live in [`backend/app/agents/personas/`](backend/app/agents/pe
 | **Dr. Anika Patel** | Modularizer | Decompose | Claude Sonnet 4.6 | Off (temperature passed) | Yes — tool use | `ModularizationSchema` — atomic flag + 0–8 sub-questions. Receives optional `user_feedback` from the confirm step. |
 | **James Harrington** | Synthesizer | Summarize | Claude Sonnet 4.6 | Off (temperature passed) | Yes — tool use | `SynthesisSchema` — `{summary}` (<300 words). Receives optional `user_feedback`. |
 
-In **TEST mode** (raw question == `TEST`), every persona temporarily forces reasoning mode ON at Anthropic's minimum 1024-token budget and skips structured output — see [Testing](#testing).
+In **TEST mode** (raw question == `TEST`), every persona temporarily forces reasoning mode ON via Opus 4.7's adaptive thinking (`thinking={"type": "adaptive"}`, `output_config={"effort": "low"}`) and skips structured output — see [Testing](#testing).
 
 ### Directory layout
 

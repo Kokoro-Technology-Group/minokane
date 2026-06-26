@@ -23,6 +23,15 @@ PY_VERSION="3.12"
 # Preflight
 # ---------------------------------------------------------------------------
 
+# dev.sh uses `wait -n`, which requires bash 4.3+. macOS ships bash 3.2 at
+# /bin/bash, so on a stock Mac you need a newer bash on PATH (e.g. via brew).
+if (( BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3) )); then
+  echo "error: bash $BASH_VERSION is too old — dev.sh needs bash 4.3+ (for 'wait -n')."
+  echo "       on macOS: brew install bash"
+  echo "       then open a new shell so /opt/homebrew/bin/bash is picked up before /bin/bash."
+  exit 1
+fi
+
 command -v conda >/dev/null 2>&1 || { echo "error: 'conda' not on PATH — install Miniconda first: https://docs.anaconda.com/miniconda/install/"; exit 1; }
 command -v node  >/dev/null 2>&1 || { echo "error: 'node' not on PATH — install Node.js v22.12+: https://nodejs.org/"; exit 1; }
 command -v npm   >/dev/null 2>&1 || { echo "error: 'npm' not on PATH (should ship with Node)"; exit 1; }
