@@ -218,6 +218,16 @@ import ModularQuestionsView from "../components/ModularQuestionsView.astro";
       const toggleBtn = clone.querySelector(".option-toggle") as HTMLButtonElement;
       const detailsEl = clone.querySelector(".option-details") as HTMLElement;
       const summaryEl = clone.querySelector(".option-summary") as HTMLElement;
+
+      const uniqueId = `option-${idx}`;
+      const textId = `${uniqueId}-text`;
+      const detailsId = `${uniqueId}-details`;
+
+      textEl.id = textId;
+      radio.setAttribute("aria-labelledby", textId);
+
+      detailsEl.id = detailsId;
+      toggleBtn.setAttribute("aria-controls", detailsId);
       const criteriaEl = clone.querySelector(".option-criteria") as HTMLElement;
       const sourceEl = clone.querySelector(".option-source") as HTMLElement;
       const deadlineInput = clone.querySelector(".option-deadline") as HTMLInputElement;
