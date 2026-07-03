@@ -1,0 +1,3 @@
+## 2024-07-03 - [Dynamic Template ARIA Bindings]
+**Learning:** When using `<template>` elements to dynamically generate list items or options in this Astro app, the ARIA attributes (like `aria-labelledby` and `aria-controls`) need to be explicitly bound using dynamically generated unique IDs during the JS rendering loop. Static IDs in the template will clash or fail to associate correctly with their targets.
+**Action:** When adding accessible toggles or radios generated from a template in JavaScript, always generate unique IDs (e.g. `option-${idx}-text`) and programmatically set `.id`, `.setAttribute('aria-labelledby', ...)` and `.setAttribute('aria-controls', ...)` on the cloned elements before appending them to the DOM.
