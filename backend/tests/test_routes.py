@@ -66,6 +66,55 @@ def test_select_on_missing_session():
     assert response.status_code == 404
 
 
+def test_full_flow_test_mode_offline():
+    """
+    Full Ask+Think pipeline through the real route + LangGraph interrupt/resume +
+    JSON store, with ZERO network: the only LLM touch-point (run_test_intro) is
+    patched in every persona that runs. Verifies the new Think tree + coverage
+    serialize through the API and that the interrupt/resume wiring is intact.
+    """
+    intro = "Message received. Canned intro."
+    with patch("app.agents.personas.operationalizer.run_test_intro", return_value=intro), \
+         patch("app.agents.personas.critic.run_test_intro", return_value=intro), \
+         patch("app.agents.personas.modularizer.run_test_intro", return_value=intro):
+
+        submit = client.post(
+            "/api/questions", headers=AUTH_HEADERS, json={"raw_question": "TEST"}
+        )
+        assert submit.status_code == 200, submit.text
+        session = submit.json()
+        assert session["status"] == "selecting"
+        assert 2 <= len(session["operationalized_options"]) <= 3
+        session_id = session["id"]
+
+        first_option = session["operationalized_options"][0]
+        select = client.put(
+            f"/api/questions/{session_id}/select",
+            headers=AUTH_HEADERS,
+            json={"operationalized_question": first_option, "user_feedback": "focus on tech"},
+        )
+        assert select.status_code == 200, select.text
+        final = select.json()
+
+    assert final["status"] == "complete"
+    assert final["core_question"] == first_option["text"]
+    assert final["user_feedback"] == "focus on tech"
+    assert final["coverage"]["markets_found"] == 3
+    # Contract: rollup majors carry `components`; market leaves carry a time_series.
+    majors = final["components"]
+    assert len(majors) == 2
+    rollup = next(m for m in majors if m.get("components"))
+    assert rollup["components"][0]["time_series"]
+    atomic = next(m for m in majors if not m.get("components"))
+    assert atomic["source"] in ("metaculus", "manifold")
+    assert atomic["time_series"]
+
+    # Round-trips through the store.
+    got = client.get(f"/api/questions/{session_id}/result", headers=AUTH_HEADERS)
+    assert got.status_code == 200
+    assert got.json()["coverage"]["markets_found"] == 3
+
+
 @pytest.mark.live
 @pytest.mark.skipif(
     not get_settings().anthropic_api_key,
@@ -92,7 +141,7 @@ def test_full_flow_live():
     get_resp = client.get(f"/api/questions/{session_id}", headers=AUTH_HEADERS)
     assert get_resp.status_code == 200
 
-    # Step 3: select first option
+    # Step 3: select first option → runs Think (decompose + real market matching)
     first_option = session["operationalized_options"][0]
     select_resp = client.put(
         f"/api/questions/{session_id}/select",
@@ -102,4 +151,21 @@ def test_full_flow_live():
     assert select_resp.status_code == 200, select_resp.text
     final = select_resp.json()
     assert final["status"] == "complete"
-    assert final["final_summary"] is not None
+    assert final["core_question"] == first_option["text"]
+    assert final["coverage"] is not None
+
+    # Integrity (PRD §6.8): every shipped LEAF is a real market node with a
+    # live URL + non-empty time_series; rollups only group market children.
+    def check_node(node):
+        children = node.get("components")
+        if children:  # rollup
+            for c in children:
+                check_node(c)
+        else:  # market leaf
+            assert node["source"] in ("metaculus", "manifold")
+            assert node["market_url"].startswith("http")
+            assert node["outcome_options"] == ["Yes", "No"]
+            assert node["time_series"], "market leaf must have a non-empty time_series"
+
+    for major in final["components"]:
+        check_node(major)

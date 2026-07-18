@@ -1,7 +1,11 @@
 """
-Marcus Webb — The Constructive Critic.
-Skeptical devil's advocate with veto power.
-Also: ranks approved candidates by closeness to the user's original intent.
+Marcus Webb — The Constructive Critic (dual role).
+
+Ask role  (critic_node): vetoes/ranks the operationalization candidates.
+Think role (validate_market_match): judges whether a matched market genuinely
+answers a sub-question — a cheap, text-only relevance gate run before the
+expensive history fetch (PRD §6.3).
+
 Powered by Claude Sonnet (Anthropic direct).
 """
 
@@ -17,6 +21,7 @@ from app.agents.personas._test_mode import (
     run_test_intro,
 )
 from app.config import get_settings
+from app.integrations.models import MarketCandidate
 from app.logging_setup import agent_log, extract_token_usage
 
 logger = logging.getLogger(__name__)
@@ -146,3 +151,51 @@ def critic_node(state: ForecastState) -> dict:
         "revision_count": state["revision_count"] + 1,
         "messages": messages,
     }
+
+
+# ---------------------------------------------------------------------------
+# Think role — market-match relevance validation (PRD §6.3)
+# ---------------------------------------------------------------------------
+
+VALIDATE_SYSTEM_PROMPT = """You are Marcus Webb validating a proposed market match. You are given a
+forecasting sub-question and ONE candidate market (its question + description). Decide a single thing:
+does this market's resolution genuinely INFORM the sub-question?
+
+Accept only if a Yes/No resolution of the market would meaningfully move a forecast of the sub-question.
+Reject shallow keyword matches, off-scope timeframes, wrong subjects, or markets that resolve on something
+tangential. Be strict — a wrong market is worse than a dropped sub-question. Return accept + a one-line reason."""
+
+
+class MatchValidationSchema(BaseModel):
+    accept: bool = Field(description="True if the market genuinely informs the sub-question")
+    reason: str = Field(description="One sentence justification")
+
+
+async def validate_market_match(subquestion_text: str, market: MarketCandidate) -> bool:
+    """Cheap, text-only relevance gate. Returns True to accept the match."""
+    messages = [
+        SystemMessage(content=VALIDATE_SYSTEM_PROMPT),
+        HumanMessage(
+            content=(
+                f"Sub-question: {subquestion_text}\n\n"
+                f"Candidate market ({market.source}, {market.status}):\n"
+                f"  question: {market.question}\n"
+                f"  description: {market.description[:400]}\n\n"
+                f"Does this market genuinely inform the sub-question? Return accept + reason."
+            )
+        ),
+    ]
+    structured_llm = get_sonnet_llm().with_structured_output(MatchValidationSchema, include_raw=True)
+    raw_and_parsed = await structured_llm.ainvoke(messages)
+    result: MatchValidationSchema = raw_and_parsed["parsed"]
+    logger.info(
+        "market_match_validation",
+        extra={
+            "persona": "Marcus Webb",
+            "stage": "validate_match",
+            "source": market.source,
+            "market_id": market.market_id,
+            "accept": result.accept,
+        },
+    )
+    return result.accept

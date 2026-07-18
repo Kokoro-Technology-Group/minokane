@@ -23,6 +23,25 @@ class Settings(BaseSettings):
     enable_web_search: bool = True
     web_search_max_uses: int = 3
 
+    # ---- Think stage: market matching (Metaculus + Manifold) --------------
+    # Manifold reads are public (no key). Metaculus reads now require an API
+    # token; when metaculus_api_token is empty the matcher degrades to
+    # Manifold-only (honest partial coverage, never a hard failure).
+    manifold_base_url: str = "https://api.manifold.markets/v0"
+    metaculus_base_url: str = "https://www.metaculus.com/api2"
+    metaculus_api_token: str = ""
+
+    market_search_limit: int = 6          # candidates per platform per sub-question
+    market_fetch_concurrency: int = 6     # bounded async pool for search/fetch
+    market_http_timeout: float = 15.0     # per-call timeout (seconds)
+    market_cache_ttl: int = 900           # response cache TTL (seconds)
+    market_max_bets: int = 4000           # Manifold bet-history pagination cap
+    market_match_min_confidence: str = "medium"  # min Anika pick confidence -> Marcus
+
+    # Decomposition bounds (prompt guidance for Anika, pass 1).
+    max_majors: int = 5
+    max_minors_per_major: int = 4
+
     model_config = {
         "env_file": ".env",
         "extra": "ignore",

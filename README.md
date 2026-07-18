@@ -2,7 +2,7 @@
 
 > *Minokane blends Minerva (Roman goddess of strategic wisdom) with Omoikane (Japanese deity of collective intelligence and deep thought).*
 
-An automated forecasting system that takes natural-language questions, operationalizes them into precise, resolvable forms, and decomposes them into modular sub-questions — powered by a multi-agent LLM pipeline (Claude Opus + Sonnet via LangGraph).
+An automated forecasting system that takes natural-language questions, operationalizes them into precise, resolvable forms (**Ask**), and decomposes them into a tree whose every leaf is a **real, live prediction market** on Metaculus or Manifold — with that market's full weekly probability history attached (**Think**). Powered by a multi-agent LLM pipeline (Claude Opus + Sonnet via LangGraph). See [`prd_ask_think.md`](prd_ask_think.md) for the Ask/Think contract.
 
 **Reference:** [Forethought — Tools for Strategic Awareness](https://www.forethought.org/research/design-sketches-tools-for-strategic-awareness)
 
@@ -41,6 +41,7 @@ This creates the `minokane` conda env (python 3.12) if missing, installs backend
 | `LOG_LEVEL` | No | Backend log level (default: `INFO`). Logs are emitted as structured JSON. |
 | `ENABLE_WEB_SEARCH` | No | Toggle Anthropic's native `web_search` server tool for the Operationalizer (default: `true`). |
 | `WEB_SEARCH_MAX_USES` | No | Max `web_search` calls per operationalization (default: `3`). |
+| `METACULUS_API_TOKEN` | No | Enables Metaculus market reads (its API now requires auth). Empty → **Manifold-only** matching. Manifold needs no key. See [backend/README](backend/README.md#configuration) for the full market-matching config. |
 
 <details>
 <summary><strong>Manual setup</strong></summary>

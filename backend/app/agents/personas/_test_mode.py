@@ -157,6 +157,106 @@ def make_test_sub_questions(intro: str) -> list[dict]:
     ]
 
 
+def make_test_proposed_tree(intro: str) -> list[dict]:
+    """Canned decomposition (Anika pass 1) — majors + ideal sub-questions, no markets."""
+    return [
+        {
+            "component": f"TEST — {intro} (canned rollup major #1)",
+            "domain_tag": "technology",
+            "confidence_of_importance": "high",
+            "is_atomic": False,
+            "llm_baseline_likelihood": None,
+            "ideal_subquestions": [
+                {
+                    "text": "TEST — canned ideal sub-question #1",
+                    "domain_tag": "technology",
+                    "confidence_of_importance": "high",
+                    "llm_baseline_likelihood": "high",
+                },
+                {
+                    "text": "TEST — canned ideal sub-question #2",
+                    "domain_tag": "economics",
+                    "confidence_of_importance": "medium",
+                    "llm_baseline_likelihood": "medium",
+                },
+            ],
+        },
+        {
+            "component": "TEST — canned atomic major (one market answers it)",
+            "domain_tag": "economics",
+            "confidence_of_importance": "high",
+            "is_atomic": True,
+            "llm_baseline_likelihood": "high",
+            "ideal_subquestions": [],
+        },
+    ]
+
+
+def _canned_series() -> list[dict]:
+    return [
+        {"date": "2026-06-01", "probability": 40.0},
+        {"date": "2026-06-08", "probability": 43.5},
+        {"date": "2026-06-15", "probability": 41.2},
+        {"date": "2026-06-22", "probability": 47.9},
+    ]
+
+
+def make_test_forecast_tree(proposed_tree: list[dict]) -> tuple[list[dict], dict]:
+    """Canned market-backed tree + coverage — no network, no LLM (TEST mode)."""
+    import uuid
+
+    def market_fields(source: str) -> dict:
+        return {
+            "source": source,
+            "market_id": f"test-{source}-{uuid.uuid4().hex[:8]}",
+            "market_url": f"https://example.com/{source}/test-market",
+            "status": "open",
+            "outcome_options": ["Yes", "No"],
+            "time_series": _canned_series(),
+        }
+
+    components = [
+        {
+            "id": str(uuid.uuid4()),
+            "type": "major_category",
+            "component": "TEST — canned rollup major",
+            "domain_tag": "technology",
+            "confidence_of_importance": "high",
+            "components": [
+                {
+                    "id": str(uuid.uuid4()),
+                    "type": "minor_category",
+                    "component": "TEST — canned market-backed minor #1",
+                    "domain_tag": "technology",
+                    "confidence_of_importance": "high",
+                    "llm_baseline_likelihood": "high",
+                    **market_fields("manifold"),
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "type": "minor_category",
+                    "component": "TEST — canned market-backed minor #2",
+                    "domain_tag": "economics",
+                    "confidence_of_importance": "medium",
+                    "llm_baseline_likelihood": "medium",
+                    **market_fields("metaculus"),
+                },
+            ],
+        },
+        {
+            "id": str(uuid.uuid4()),
+            "type": "major_category",
+            "component": "TEST — canned atomic major (one market answers it)",
+            "domain_tag": "economics",
+            "confidence_of_importance": "high",
+            "llm_baseline_likelihood": "high",
+            **market_fields("manifold"),
+        },
+    ]
+    coverage = {"sub_questions_proposed": 3, "markets_found": 3, "branches_dropped": 0}
+    return components, coverage
+
+
 def make_test_summary(intro: str) -> str:
     return (
         f"TEST MODE — {intro}\n\n"
