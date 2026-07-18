@@ -4,6 +4,9 @@ Run with: pytest tests/test_routes.py -v
 Requires the minokane conda env to be active and ANTHROPIC_API_KEY to be set.
 """
 
+import os
+os.environ["API_KEY"] = "test-key"
+
 import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch, MagicMock
@@ -11,7 +14,7 @@ from unittest.mock import patch, MagicMock
 from app.main import app
 from app.config import get_settings
 
-TEST_API_KEY = get_settings().api_key
+TEST_API_KEY = "test-key"
 AUTH_HEADERS = {"X-API-Key": TEST_API_KEY}
 
 client = TestClient(app)

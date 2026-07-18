@@ -1,5 +1,5 @@
 const API_BASE = "/api";
-const API_KEY = import.meta.env.PUBLIC_API_KEY ?? "minokane-dev-key";
+const API_KEY = import.meta.env.PUBLIC_API_KEY || "";
 
 const headers = {
   "Content-Type": "application/json",
