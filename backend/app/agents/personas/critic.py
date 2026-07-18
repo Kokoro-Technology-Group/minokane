@@ -16,6 +16,7 @@ from app.agents.personas._test_mode import (
     make_test_critic_result,
     run_test_intro,
 )
+from app.agents.personas._mock_mode import is_mock_mode, make_mock_critic_feedback
 from app.config import get_settings
 from app.logging_setup import agent_log, extract_token_usage
 
@@ -85,6 +86,15 @@ def _validate_order(order: list[int], n: int) -> list[int]:
 
 def critic_node(state: ForecastState) -> dict:
     n = len(state["operationalized_options"])
+
+    if is_mock_mode():
+        return {
+            "critic_approved": True,
+            "critic_feedback": make_mock_critic_feedback(),
+            "candidate_order": list(range(n)),
+            "revision_count": state["revision_count"] + 1,
+            "messages": [],
+        }
 
     if is_test_question(state.get("raw_question")):
         intro = run_test_intro(

@@ -16,6 +16,7 @@ from app.agents.personas._test_mode import (
     make_test_sub_questions,
     run_test_intro,
 )
+from app.agents.personas._mock_mode import is_mock_mode, make_mock_sub_questions
 from app.config import get_settings
 from app.logging_setup import agent_log, extract_token_usage
 
@@ -74,6 +75,12 @@ class ModularizationSchema(BaseModel):
 
 
 def modularizer_node(state: ForecastState) -> dict:
+    if is_mock_mode():
+        return {
+            "modular_sub_questions": make_mock_sub_questions(),
+            "messages": [],
+        }
+
     if is_test_question(state.get("raw_question")):
         intro = run_test_intro(
             persona_name="Dr. Anika Patel",
