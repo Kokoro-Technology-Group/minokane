@@ -1,15 +1,11 @@
 ---
 /**
- * THINK phase — circle-packing "bubble map" with light physics + timeline.
+ * THINK phase — traditional treemap.
  *
- * Nested circles: core question ⊃ 3 major categories ⊃ their minor markets.
- * d3.pack gives the resting layout; a gentle d3.forceSimulation then lets the
- * leaf bubbles jostle/float and push each other as they inflate (each is kept
- * inside its parent circle). Leaf area ∝ current probability, eased smoothly.
- *
- * Big (major) bubbles show their QUESTION text (not a %). Leaves show their
- * live %; hover any leaf for the exact value + date. Core estimate is the
- * running mean, shown top-left.
+ * Nested rectangles: core question ⊃ 3 major categories ⊃ their minor markets.
+ * Leaf area ∝ current probability. Stepping the timeline re-lays out the
+ * treemap each week, so rectangles grow/shrink over time. Major bands show the
+ * category QUESTION; leaves show their live %. Hover a leaf → exact value + date.
  *
  * Emits `testdraft:phase` -> { phase: "show" }. Re-arms on `testdraft:entered`.
  */
@@ -25,11 +21,17 @@
   </div>
 
   <div class="tree-wrap">
-    <div class="core-readout">
-      <span class="core-big" id="td-core-pct">—</span>
-      <span class="core-cap">core estimate</span>
+    <div class="tm-topbar">
+      <div class="core-readout">
+        <span class="core-big" id="td-core-pct">—</span>
+        <span class="core-cap">core estimate</span>
+      </div>
+      <div class="legend" id="td-legend"></div>
     </div>
-    <svg id="td-pack" role="img" aria-label="Forecast bubble map"></svg>
+
+    <div class="stage" id="td-stage">
+      <svg id="td-tree" role="img" aria-label="Forecast treemap"></svg>
+    </div>
     <div class="bubble-tip" id="td-tip" hidden></div>
 
     <div class="timeline">
@@ -37,28 +39,17 @@
       <input type="range" id="td-scrub" min="0" max="0" value="0" step="1" />
       <span class="tl-date" id="td-date">—</span>
     </div>
-
-    <div class="legend" id="td-legend"></div>
   </div>
 </section>
 
 <script>
   import * as d3 from "d3";
-  import {
-    forecast,
-    minorProbAt,
-    LAST_INDEX,
-    pct,
-    type Minor,
-  } from "../../data/forecast";
+  import { forecast, minorProbAt, LAST_INDEX, pct, type Minor } from "../../data/forecast";
 
-  const CORE_COLOR = "#214776";
-  const S = 640;
-  const STEP_MS = 200;
-  const EASE = 0.14; // per-tick easing of probability → smooth inflation
-  const SCALE = 1.2; // bubbles bigger so they collide/merge
+  const W = 900, H = 560, STEP_MS = 220, PAD_TOP = 26;
 
-  const svgEl = document.getElementById("td-pack") as unknown as SVGSVGElement;
+  const stage = document.getElementById("td-stage")!;
+  const svgEl = document.getElementById("td-tree") as unknown as SVGSVGElement;
   const coreQ = document.getElementById("td-core-q")!;
   const corePct = document.getElementById("td-core-pct")!;
   const dateLabel = document.getElementById("td-date")!;
@@ -68,151 +59,87 @@
   const legend = document.getElementById("td-legend")!;
   const tip = document.getElementById("td-tip")!;
 
-  interface Leaf {
-    x: number; y: number; vx?: number; vy?: number;
-    homeX: number; homeY: number; rPacked: number;
-    majX: number; majY: number; majR: number;
+  interface LeafRef {
+    node: d3.HierarchyRectangularNode<any>;
     minor: Minor; color: string;
-    curP: number; targetP: number;
-    base: SVGCircleElement;   // goo/metaball blob (colored)
-    sheen: SVGCircleElement;  // glossy radial highlight
-    rim: SVGCircleElement;    // luminous glass edge
-    spec: SVGEllipseElement;  // specular top highlight
-    hit: SVGCircleElement;    // transparent hover target
-    text: SVGTextElement;
+    rect: SVGRectElement; fo: SVGForeignObjectElement; div: HTMLElement;
   }
 
-  let leaves: Leaf[] = [];
-  let sim: d3.Simulation<Leaf, undefined> | null = null;
+  let root: d3.HierarchyRectangularNode<any> | null = null;
+  let leaves: LeafRef[] = [];
+  let majorSel: { node: d3.HierarchyRectangularNode<any>; rect: SVGRectElement; label: SVGForeignObjectElement; div: HTMLElement }[] = [];
   let timer: number | null = null;
   let idx = 0;
 
-  const curR = (d: Leaf) => d.rPacked * SCALE * Math.sqrt(Math.max(0.004, d.curP / d.minor.max));
+  const treemap = d3.treemap<any>().size([W, H]).paddingOuter(4).paddingTop(PAD_TOP).paddingInner(4).round(true);
+
+  function hexRgb(h: string) {
+    const m = h.replace("#", "");
+    const n = parseInt(m.length === 3 ? m.split("").map((c) => c + c).join("") : m, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  }
+  function lighten(hex: string, amt: number) {
+    const [r, g, b] = hexRgb(hex);
+    const mix = (c: number) => Math.round(c + (255 - c) * amt);
+    return `rgb(${mix(r)},${mix(g)},${mix(b)})`;
+  }
 
   function buildData() {
-    return {
-      label: forecast.core,
-      children: forecast.majors.map((m) => ({
-        id: m.id, label: m.label, color: m.color, major: m,
-        children: m.minors.map((mn) => ({ color: m.color, value: mn.max, minor: mn, label: mn.label })),
-      })),
-    };
+    return { name: "core", children: forecast.majors.map((m) => ({
+      name: m.label, color: m.color,
+      children: m.minors.map((mn) => ({ name: mn.label, color: m.color, minor: mn, _v: mn.series[0].p })),
+    })) };
   }
 
   function render() {
     coreQ.textContent = forecast.core;
 
-    const root = d3.hierarchy<any>(buildData())
-      .sum((d) => d.value ?? 0)
-      .sort((a, b) => (b.value ?? 0) - (a.value ?? 0));
-    d3.pack<any>().size([S, S]).padding(16)(root);
+    root = d3.hierarchy<any>(buildData())
+      .sum((d) => d._v ?? 0)
+      .sort((a, b) => (b.value ?? 0) - (a.value ?? 0)) as d3.HierarchyRectangularNode<any>;
+    treemap(root);
 
     const svg = d3.select(svgEl);
     svg.selectAll("*").remove();
-    svg.attr("viewBox", `0 0 ${S} ${S}`).attr("preserveAspectRatio", "xMidYMid meet");
+    svg.attr("viewBox", `0 0 ${W} ${H}`).attr("preserveAspectRatio", "none");
 
-    const defs = svg.append("defs");
+    const majorNodes = root.children ?? [];
+    const leafNodes = root.leaves();
 
-    // Soft float shadow
-    const f = defs.append("filter").attr("id", "pk-soft").attr("x", "-30%").attr("y", "-30%")
-      .attr("width", "160%").attr("height", "160%");
-    f.append("feDropShadow").attr("dx", 0).attr("dy", 3).attr("stdDeviation", 6)
-      .attr("flood-color", "rgba(60,64,67,0.30)");
-
-    // Gooey / metaball filter — makes touching bubbles merge like liquid
-    const goo = defs.append("filter").attr("id", "goo");
-    goo.append("feGaussianBlur").attr("in", "SourceGraphic").attr("stdDeviation", 9).attr("result", "blur");
-    goo.append("feColorMatrix").attr("in", "blur").attr("mode", "matrix")
-      .attr("values", "1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9").attr("result", "goo");
-    goo.append("feComposite").attr("in", "SourceGraphic").attr("in2", "goo").attr("operator", "atop");
-
-    // Glossy dome sheen (top-left light), scales per bubble
-    const sheen = defs.append("radialGradient").attr("id", "glass-sheen")
-      .attr("cx", "0.35").attr("cy", "0.30").attr("r", "0.75");
-    sheen.append("stop").attr("offset", "0%").attr("stop-color", "rgba(255,255,255,0.85)");
-    sheen.append("stop").attr("offset", "45%").attr("stop-color", "rgba(255,255,255,0.18)");
-    sheen.append("stop").attr("offset", "72%").attr("stop-color", "rgba(255,255,255,0)");
-    sheen.append("stop").attr("offset", "100%").attr("stop-color", "rgba(0,0,0,0.10)");
-
-    // Blur for the specular highlight
-    const sb = defs.append("filter").attr("id", "spec-blur");
-    sb.append("feGaussianBlur").attr("stdDeviation", "2.2");
-
-    const nodes = root.descendants() as d3.HierarchyCircularNode<any>[];
-    const core = nodes.find((n) => n.depth === 0)!;
-    const majorNodes = nodes.filter((n) => n.depth === 1);
-    const leafNodes = nodes.filter((n) => n.depth === 2);
-
-    // Core boundary
-    svg.append("circle")
-      .attr("cx", core.x).attr("cy", core.y).attr("r", core.r)
-      .attr("fill", "none").attr("stroke", CORE_COLOR)
-      .attr("stroke-width", 2).attr("stroke-dasharray", "3 6").attr("opacity", 0.45);
-
-    // Major circles + QUESTION label (no %)
-    const majG = svg.append("g");
-    majorNodes.forEach((n) => {
-      majG.append("circle")
-        .attr("cx", n.x).attr("cy", n.y).attr("r", n.r)
-        .attr("fill", `color-mix(in srgb, ${n.data.color} 9%, var(--color-bg))`)
-        .attr("stroke", n.data.color).attr("stroke-width", 2).attr("stroke-opacity", 0.55);
-
-      const fw = n.r * 1.7;
-      const fh = 54;
-      const fo = majG.append("foreignObject")
-        .attr("x", n.x - fw / 2).attr("y", n.y - n.r + 8)
-        .attr("width", fw).attr("height", fh).style("pointer-events", "none");
-      const div = fo.append("xhtml:div").attr("class", "maj-label");
-      (div.node() as HTMLElement).style.setProperty("--mc", n.data.color);
-      (div.node() as HTMLElement).textContent = n.data.label;
+    // Major cluster rectangles + question band
+    majorSel = majorNodes.map((n) => {
+      const rect = svg.append("rect")
+        .attr("x", n.x0).attr("y", n.y0).attr("width", n.x1 - n.x0).attr("height", n.y1 - n.y0)
+        .attr("rx", 8).attr("fill", lighten(n.data.color, 0.86))
+        .attr("stroke", n.data.color).attr("stroke-width", 1.5).attr("stroke-opacity", 0.5)
+        .node() as SVGRectElement;
+      const fo = svg.append("foreignObject")
+        .attr("x", n.x0 + 6).attr("y", n.y0 + 3).attr("width", Math.max(0, n.x1 - n.x0 - 12)).attr("height", PAD_TOP - 4)
+        .node() as SVGForeignObjectElement;
+      const div = document.createElement("div");
+      div.className = "tm-maj";
+      div.style.setProperty("--mc", n.data.color);
+      div.textContent = n.data.name;
+      fo.appendChild(div);
+      return { node: n, rect, label: fo, div };
     });
 
-    // Two layers: gooey blob layer (merges) behind, glass detail layer on top
-    const gooLayer = svg.append("g").attr("filter", "url(#goo)");
-    const glassLayer = svg.append("g");
-
-    leaves = leafNodes.map((n) => {
-      const c = n.data.color;
-      // Merging liquid blob (colored, semi-opaque for translucency)
-      const base = gooLayer.append("circle")
-        .attr("cx", n.x).attr("cy", n.y).attr("r", 1)
-        .attr("fill", c).attr("fill-opacity", 0.9)
-        .node() as SVGCircleElement;
-
-      // Glass sheen dome
-      const sheenC = glassLayer.append("circle")
-        .attr("cx", n.x).attr("cy", n.y).attr("r", 1)
-        .attr("fill", "url(#glass-sheen)")
-        .node() as SVGCircleElement;
-      // Luminous rim
-      const rim = glassLayer.append("circle")
-        .attr("cx", n.x).attr("cy", n.y).attr("r", 1)
-        .attr("fill", "none").attr("stroke", "rgba(255,255,255,0.65)").attr("stroke-width", 1.4)
-        .node() as SVGCircleElement;
-      // Specular top highlight
-      const spec = glassLayer.append("ellipse")
-        .attr("fill", "rgba(255,255,255,0.9)").attr("filter", "url(#spec-blur)")
-        .node() as SVGEllipseElement;
-      // % text
-      const text = glassLayer.append("text")
-        .attr("class", "leaf-pct").attr("x", n.x).attr("y", n.y + 5)
-        .attr("text-anchor", "middle").text("")
-        .node() as SVGTextElement;
-      // Transparent hover target
-      const hit = glassLayer.append("circle")
-        .attr("cx", n.x).attr("cy", n.y).attr("r", 1)
-        .attr("fill", "transparent").style("cursor", "pointer")
-        .node() as SVGCircleElement;
-
-      const leaf: Leaf = {
-        x: n.x, y: n.y, homeX: n.x, homeY: n.y, rPacked: n.r,
-        majX: n.parent!.x, majY: n.parent!.y, majR: n.parent!.r,
-        minor: n.data.minor, color: c,
-        curP: n.data.minor.series[0].p, targetP: n.data.minor.series[0].p,
-        base, sheen: sheenC, rim, spec, hit, text,
-      };
-      attachHover(hit, leaf);
-      return leaf;
+    // Leaf rectangles
+    leaves = leafNodes.map((n, i) => {
+      const rect = svg.append("rect")
+        .attr("x", n.x0).attr("y", n.y0).attr("width", n.x1 - n.x0).attr("height", n.y1 - n.y0)
+        .attr("rx", 5).attr("fill", lighten(n.data.color, 0.35 + (i % 3) * 0.12))
+        .node() as SVGRectElement;
+      const fo = svg.append("foreignObject")
+        .attr("x", n.x0).attr("y", n.y0).attr("width", n.x1 - n.x0).attr("height", n.y1 - n.y0)
+        .node() as SVGForeignObjectElement;
+      const div = document.createElement("div");
+      div.className = "tm-leaf";
+      fo.appendChild(div);
+      const ref: LeafRef = { node: n, minor: n.data.minor, color: n.data.color, rect, fo, div };
+      attachHover(rect, ref);
+      attachHover(fo, ref);
+      return ref;
     });
 
     // Legend
@@ -225,99 +152,73 @@
     });
 
     scrub.max = String(LAST_INDEX);
-
-    // Physics — perpetual jostle; collide radius < visual radius so neighbors
-    // overlap slightly and the gooey filter fuses them into liquid.
-    sim = d3.forceSimulation<Leaf>(leaves)
-      .velocityDecay(0.80)
-      .alphaMin(0)
-      .alphaTarget(0.07)
-      .force("collide", d3.forceCollide<Leaf>().radius((d) => curR(d) * 0.9).strength(0.85))
-      .force("x", d3.forceX<Leaf>((d) => d.homeX).strength(0.055))
-      .force("y", d3.forceY<Leaf>((d) => d.homeY).strength(0.055))
-      .on("tick", ticked);
-    sim.alpha(0.9).restart();
+    draw(false);
   }
 
-  function ticked() {
-    let sum = 0;
-    for (const d of leaves) {
-      // Ease probability → radius for smooth inflation + counting text
-      d.curP += (d.targetP - d.curP) * EASE;
-      const r = curR(d);
+  function draw(animate: boolean) {
+    const dur = animate ? STEP_MS - 30 : 0;
 
-      // Keep the bubble inside its parent circle
-      const dx = d.x - d.majX, dy = d.y - d.majY;
-      const dist = Math.hypot(dx, dy) || 0.001;
-      const maxDist = d.majR - r * 0.8 - 4;
-      if (dist > maxDist) {
-        const k = maxDist / dist;
-        d.x = d.majX + dx * k; d.y = d.majY + dy * k;
-        d.vx = (d.vx ?? 0) * 0.4; d.vy = (d.vy ?? 0) * 0.4;
-      }
-
-      const x = d.x.toFixed(1), y = d.y.toFixed(1), rr = r.toFixed(1);
-      d.base.setAttribute("cx", x); d.base.setAttribute("cy", y); d.base.setAttribute("r", rr);
-      d.sheen.setAttribute("cx", x); d.sheen.setAttribute("cy", y); d.sheen.setAttribute("r", rr);
-      d.rim.setAttribute("cx", x); d.rim.setAttribute("cy", y); d.rim.setAttribute("r", rr);
-      d.hit.setAttribute("cx", x); d.hit.setAttribute("cy", y); d.hit.setAttribute("r", rr);
-      // Specular highlight near top-left
-      d.spec.setAttribute("cx", (d.x - r * 0.28).toFixed(1));
-      d.spec.setAttribute("cy", (d.y - r * 0.42).toFixed(1));
-      d.spec.setAttribute("rx", (r * 0.34).toFixed(1));
-      d.spec.setAttribute("ry", (r * 0.20).toFixed(1));
-
-      const fs = Math.max(10, Math.min(22, r * 0.5));
-      d.text.setAttribute("x", x);
-      d.text.setAttribute("y", (d.y + fs * 0.33).toFixed(1));
-      d.text.style.fontSize = `${fs}px`;
-      d.text.textContent = r > 18 ? pct(d.curP) : "";
-      sum += d.curP;
-    }
-    if (leaves.length) corePct.textContent = pct(sum / leaves.length);
-  }
-
-  function attachHover(g: SVGCircleElement, leaf: Leaf) {
-    g.addEventListener("mousemove", (ev) => {
-      const wrap = (svgEl.parentElement as HTMLElement).getBoundingClientRect();
-      tip.hidden = false;
-      tip.style.left = `${ev.clientX - wrap.left}px`;
-      tip.style.top = `${ev.clientY - wrap.top}px`;
-      tip.innerHTML =
-        `<span class="tip-q">${leaf.minor.label}</span>` +
-        `<span class="tip-v" style="color:${leaf.color}">${(leaf.targetP * 100).toFixed(1)}%</span>` +
-        `<span class="tip-d">${forecast.dates[idx] ?? ""} · ${leaf.minor.source}</span>`;
+    majorSel.forEach((m) => {
+      const n = m.node;
+      d3.select(m.rect).transition().duration(dur)
+        .attr("x", n.x0).attr("y", n.y0).attr("width", Math.max(0, n.x1 - n.x0)).attr("height", Math.max(0, n.y1 - n.y0));
+      d3.select(m.label).transition().duration(dur)
+        .attr("x", n.x0 + 6).attr("y", n.y0 + 3).attr("width", Math.max(0, n.x1 - n.x0 - 12));
     });
-    g.addEventListener("mouseleave", () => { tip.hidden = true; });
+
+    leaves.forEach((lf) => {
+      const n = lf.node;
+      const w = Math.max(0, n.x1 - n.x0), h = Math.max(0, n.y1 - n.y0);
+      d3.select(lf.rect).transition().duration(dur)
+        .attr("x", n.x0).attr("y", n.y0).attr("width", w).attr("height", h);
+      d3.select(lf.fo).transition().duration(dur)
+        .attr("x", n.x0).attr("y", n.y0).attr("width", w).attr("height", h);
+      const p = lf.node.data._v as number;
+      lf.div.innerHTML =
+        (w > 60 && h > 44 ? `<span class="tm-q">${lf.minor.label}</span>` : "") +
+        `<span class="tm-pct">${pct(p)}</span>`;
+      lf.div.style.color = "#20303f";
+    });
+  }
+
+  function attachHover(el: Element, lf: LeafRef) {
+    (el as HTMLElement).style.cursor = "pointer";
+    el.addEventListener("mousemove", (ev) => {
+      const e = ev as MouseEvent;
+      const wrap = (stage.parentElement as HTMLElement).getBoundingClientRect();
+      tip.hidden = false;
+      tip.style.left = `${e.clientX - wrap.left}px`;
+      tip.style.top = `${e.clientY - wrap.top}px`;
+      tip.innerHTML =
+        `<span class="tip-q">${lf.minor.label}</span>` +
+        `<span class="tip-v" style="color:${lf.color}">${((lf.node.data._v as number) * 100).toFixed(1)}%</span>` +
+        `<span class="tip-d">${forecast.dates[idx] ?? ""} · ${lf.minor.source}</span>`;
+    });
+    el.addEventListener("mouseleave", () => { tip.hidden = true; });
   }
 
   function update(i: number) {
     idx = i;
-    for (const d of leaves) d.targetP = minorProbAt(d.minor, i);
-    if (sim) sim.alpha(0.5).restart();
+    if (!root) return;
+    let sum = 0;
+    for (const lf of leaves) { const p = minorProbAt(lf.minor, i); lf.node.data._v = p; sum += p; }
+    root.sum((d) => d._v ?? 0);
+    treemap(root);
+    draw(true);
+    corePct.textContent = pct(sum / leaves.length);
     dateLabel.textContent = forecast.dates[i] ?? "";
     scrub.value = String(i);
   }
 
-  function stop() {
-    if (timer !== null) { clearInterval(timer); timer = null; }
-    playBtn.textContent = "▶";
-  }
+  function stop() { if (timer !== null) { clearInterval(timer); timer = null; } playBtn.textContent = "▶"; }
   function play() {
-    stop();
-    if (idx >= LAST_INDEX) idx = 0;
-    playBtn.textContent = "⏸";
+    stop(); if (idx >= LAST_INDEX) idx = 0; playBtn.textContent = "⏸";
     timer = window.setInterval(() => {
       if (idx >= LAST_INDEX) { stop(); toShowBtn.disabled = false; return; }
       update(idx + 1);
     }, STEP_MS);
   }
-
-  function boot() {
-    render();
-    idx = 0; update(0);
-    setTimeout(play, 350);
-  }
+  function boot() { render(); idx = 0; update(0); setTimeout(play, 350); }
 
   playBtn.addEventListener("click", () => (timer === null ? play() : stop()));
   scrub.addEventListener("input", () => { stop(); update(parseInt(scrub.value, 10)); });
@@ -325,7 +226,7 @@
     if ((e as CustomEvent).detail?.phase === "think") boot();
   });
   toShowBtn.addEventListener("click", () => {
-    stop(); if (sim) sim.stop();
+    stop();
     document.dispatchEvent(new CustomEvent("testdraft:phase", { detail: { phase: "show" } }));
   });
 </script>
@@ -340,36 +241,42 @@
   .td-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
   .tree-wrap { background: var(--color-surface); border-radius: 16px; padding: 1rem; position: relative; }
-  .core-readout { position: absolute; top: 1.2rem; left: 1.4rem; display: flex; flex-direction: column; line-height: 1; z-index: 2; }
+  .tm-topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .core-readout { display: flex; flex-direction: column; line-height: 1; }
   .core-big { font-size: 2rem; font-weight: 700; color: var(--color-primary); }
   .core-cap { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--color-text-muted); margin-top: 0.2rem; }
-  #td-pack { width: 100%; height: auto; display: block; max-width: 560px; margin: 0 auto; }
+
+  .stage { position: relative; width: 100%; }
+  #td-tree { width: 100%; height: auto; display: block; aspect-ratio: 900 / 560; }
 
   .bubble-tip {
-    position: absolute; z-index: 5; pointer-events: none;
-    transform: translate(-50%, calc(-100% - 14px));
-    background: var(--color-bg); border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-md); border-radius: 10px; padding: 0.5rem 0.65rem;
-    max-width: 230px; display: flex; flex-direction: column; gap: 0.15rem;
+    position: absolute; z-index: 5; pointer-events: none; transform: translate(-50%, calc(-100% - 14px));
+    background: var(--color-bg); border: 1px solid var(--color-border); box-shadow: var(--shadow-md);
+    border-radius: 10px; padding: 0.5rem 0.65rem; max-width: 240px; display: flex; flex-direction: column; gap: 0.15rem;
   }
-  .bubble-tip .tip-q { font-size: 0.72rem; color: var(--color-text); line-height: 1.25; }
-  .bubble-tip .tip-v { font-size: 1rem; font-weight: 700; }
-  .bubble-tip .tip-d { font-size: 0.66rem; color: var(--color-text-muted); }
+  :global(.bubble-tip .tip-q) { font-size: 0.72rem; color: var(--color-text); line-height: 1.25; }
+  :global(.bubble-tip .tip-v) { font-size: 1rem; font-weight: 700; }
+  :global(.bubble-tip .tip-d) { font-size: 0.66rem; color: var(--color-text-muted); }
 
-  .timeline { display: flex; align-items: center; gap: 0.8rem; margin-top: 0.5rem; padding: 0 0.5rem; }
+  .timeline { display: flex; align-items: center; gap: 0.8rem; margin-top: 0.7rem; padding: 0 0.25rem; }
   .play-btn { width: 2.2rem; height: 2.2rem; border-radius: 999px; border: none; background: var(--color-primary); color: #fff; font-size: 0.9rem; cursor: pointer; flex-shrink: 0; }
   #td-scrub { flex: 1; accent-color: var(--color-primary); }
   .tl-date { font-size: 0.82rem; color: var(--color-text-muted); font-variant-numeric: tabular-nums; min-width: 5.5rem; text-align: right; }
 
-  .legend { display: flex; flex-direction: column; gap: 0.35rem; margin-top: 0.9rem; padding: 0 0.5rem; }
-  .legend-item { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: var(--color-text-muted); }
-  .legend-dot { width: 0.7rem; height: 0.7rem; border-radius: 999px; flex-shrink: 0; }
+  .legend { display: flex; flex-direction: column; gap: 0.3rem; }
+  :global(.legend-item) { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; color: var(--color-text-muted); max-width: 340px; }
+  :global(.legend-dot) { width: 0.7rem; height: 0.7rem; border-radius: 3px; flex-shrink: 0; }
 
-  :global(#td-pack .leaf-pct) { font-weight: 700; fill: #fff; pointer-events: none; }
-  :global(.maj-label) {
-    display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden;
-    text-align: center; font-family: "Roboto", system-ui, sans-serif; font-size: 0.72rem;
-    font-weight: 600; line-height: 1.2; color: var(--mc);
-    text-shadow: 0 1px 3px var(--color-bg), 0 0 2px var(--color-bg);
+  :global(.tm-maj) {
+    font-family: "Roboto", system-ui, sans-serif; font-size: 0.72rem; font-weight: 700; color: var(--mc);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; line-height: calc(26px - 6px);
+    pointer-events: none;
   }
+  :global(.tm-leaf) {
+    width: 100%; height: 100%; box-sizing: border-box; padding: 5px 7px; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: flex-end; pointer-events: none;
+    font-family: "Roboto", system-ui, sans-serif;
+  }
+  :global(.tm-leaf .tm-q) { font-size: 0.68rem; line-height: 1.2; opacity: 0.85; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: 2px; }
+  :global(.tm-leaf .tm-pct) { font-size: 1.05rem; font-weight: 700; }
 </style>
