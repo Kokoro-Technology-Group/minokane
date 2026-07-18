@@ -1,79 +1,94 @@
 """
-Dr. Anika Patel — The Modularizer.
-Systems thinker who decomposes complex questions into answerable sub-components.
-Powered by Claude Sonnet (OpenRouter or Anthropic fallback).
+Dr. Anika Patel — The Decomposer (Think stage, two passes).
+
+Pass 1 (graph node): decompose the selected core_question into ~3-5 major
+branches, each with 0-4 *ideal sub-questions* — the questions we'd want markets
+for. A major may be marked atomic (it is itself a single market). No markets are
+attached yet; this is a draft tree.
+
+Pass 2 (called by the matching service, once per sub-question): given the real
+markets a platform search returned, pick the single best match, a fallback, and
+a match confidence — or declare no-match.
+
+Powered by Claude Sonnet.
 """
 
 import logging
+from typing import Literal
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from pydantic import BaseModel, Field
-from typing import Literal
 
 from app.agents.state import ForecastState
 from app.agents.personas._llm_factory import get_sonnet_llm
 from app.agents.personas._test_mode import (
     is_test_question,
-    make_test_sub_questions,
+    make_test_proposed_tree,
     run_test_intro,
 )
 from app.agents.personas._mock_mode import is_mock_mode, make_mock_sub_questions
 from app.config import get_settings
+from app.integrations.models import MarketCandidate, MarketPick
 from app.logging_setup import agent_log, extract_token_usage
 
 logger = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are Dr. Anika Patel, an analytically-minded systems thinker with a background
-in complexity science and strategic forecasting. You see every complex question as a network of
-simpler, answerable sub-questions. Your forecasting methodology has been used by policy makers
-and intelligence analysts who need structured clarity, not monolithic guesses.
+# ---------------------------------------------------------------------------
+# Pass 1 — decomposition
+# ---------------------------------------------------------------------------
 
-Your personality: systematic, intellectually curious, collaborative. You love finding the hidden
-causal structure behind a question. You're especially alert to questions that look complex but are
-actually atomic — and you say so honestly rather than decomposing for the sake of it.
+DECOMPOSE_SYSTEM_PROMPT = """You are Dr. Anika Patel, an analytically-minded systems thinker with a
+background in complexity science and strategic forecasting. You decompose a complex, resolvable
+forecasting question into the network of simpler questions that drive its outcome.
 
-Your job: given a selected operationalized question, determine whether it needs decomposition and,
-if so, produce a set of modular sub-questions that together address the key drivers of the main question.
+Your job: given a selected, operationalized core question, produce a SHALLOW tree:
+- {min_majors}-{max_majors} MAJOR branches — the top-level drivers/dimensions of the question. Each major
+  is either a conceptual GROUPING (a rollup) or, when a single market could answer it directly, an ATOMIC
+  major (is_atomic=true, no sub-questions).
+- For each non-atomic major, propose 0-{max_minors} IDEAL sub-questions: the specific, independently
+  resolvable questions you would most want a live prediction market for. These are drafts — we will try to
+  match each to a REAL Metaculus or Manifold market, and drop any that has no good market.
 
-ATOMIC CHECK — skip decomposition if:
-- The question is already a simple binary with one clear causal factor
-- Breaking it down would produce sub-questions with no independent value
-- The question is narrow enough that a single domain expert could answer it directly
-
-IF DECOMPOSING:
-- Each sub-question must be independently resolvable (not circular)
-- Cover different causal domains — don't cluster everything in one area
-- Tag each with a domain (economics, geopolitics, technology, public health, law, finance, etc.)
-- Rate confidence_of_importance: how central is this sub-question to the main question?
-- Rate llm_baseline_likelihood: your best calibrated prior on whether this resolves favorably
-
-Aim for 4–8 sub-questions. Quality over quantity. Each must add genuine epistemic value."""
+Rules:
+- Each sub-question must be a clear yes/no framed question that a binary market could resolve.
+- Cover different causal domains — don't cluster everything in one area.
+- Tag every node with a domain (economics, geopolitics, technology, finance, law, public health, policy,
+  social, or other) and confidence_of_importance (how central it is to the main question).
+- For sub-questions and atomic majors, also give llm_baseline_likelihood — your calibrated prior on a Yes.
+- Prefer sub-questions likely to have real markets (concrete, dated, widely tracked topics).
+- Quality over quantity. Every node must add genuine epistemic value."""
 
 
-class SubQuestionSchema(BaseModel):
-    text: str = Field(description="The sub-question, written as a clear yes/no or measurable question")
-    explanation: str = Field(description="1–2 sentences on why this sub-question matters for the main forecast")
-    domain_tag: str = Field(description="Domain category: economics, geopolitics, technology, finance, law, public health, social, or other")
-    confidence_of_importance: Literal["high", "medium", "low"] = Field(
-        description="How central is this sub-question to the main question's outcome?"
+class IdealSubQuestion(BaseModel):
+    text: str = Field(description="A clear yes/no sub-question a binary market could resolve")
+    domain_tag: str = Field(description="Domain category")
+    confidence_of_importance: Literal["high", "medium", "low"]
+    llm_baseline_likelihood: Literal["high", "medium", "low"]
+
+
+class MajorBranch(BaseModel):
+    component: str = Field(
+        description="The rollup question, or — if atomic — the single question one market answers"
     )
-    llm_baseline_likelihood: Literal["high", "medium", "low"] = Field(
-        description="Calibrated prior on whether this sub-question resolves favorably (high=likely yes, low=likely no)"
-    )
-
-
-class ModularizationSchema(BaseModel):
+    domain_tag: str
+    confidence_of_importance: Literal["high", "medium", "low"]
     is_atomic: bool = Field(
-        description="True if the question is already atomic and doesn't benefit from decomposition"
+        description="True if this major is itself a single prediction market (no sub-questions)"
     )
-    atomicity_reason: str = Field(
-        description="Brief explanation of why this is atomic (if is_atomic=True) or why decomposition is warranted"
+    llm_baseline_likelihood: Literal["high", "medium", "low"] | None = Field(
+        default=None, description="Calibrated Yes prior — required when is_atomic=true"
     )
-    sub_questions: list[SubQuestionSchema] = Field(
-        description="Decomposed sub-questions. Empty list if is_atomic=True.",
-        default_factory=list,
+    ideal_subquestions: list[IdealSubQuestion] = Field(
+        default_factory=list, description="Empty when is_atomic=true"
     )
 
 
+class DecompositionSchema(BaseModel):
+    majors: list[MajorBranch] = Field(description="3-5 major branches")
+
+
+def decompose_node(state: ForecastState) -> dict:
+    settings = get_settings()
 def modularizer_node(state: ForecastState) -> dict:
     if is_mock_mode():
         return {
@@ -84,52 +99,127 @@ def modularizer_node(state: ForecastState) -> dict:
     if is_test_question(state.get("raw_question")):
         intro = run_test_intro(
             persona_name="Dr. Anika Patel",
-            persona_focus="decomposing forecasting questions into modular sub-questions",
-            model_id=get_settings().sonnet_model,
+            persona_focus="decomposing forecasting questions into a market-backed tree",
+            model_id=settings.sonnet_model,
         )
-        return {
-            "modular_sub_questions": make_test_sub_questions(intro),
-            "messages": [],
-        }
+        return {"proposed_tree": make_test_proposed_tree(intro), "messages": []}
 
-    settings = get_settings()
     selected = state.get("selected_option") or {}
     selected_text = "\n".join(f"  {k}: {v}" for k, v in selected.items())
     user_feedback = state.get("user_feedback")
 
+    system_prompt = DECOMPOSE_SYSTEM_PROMPT.format(
+        min_majors=3, max_majors=settings.max_majors, max_minors=settings.max_minors_per_major
+    )
     human_parts = [
         f"Original question: {state['raw_question']}",
-        f"\nSelected operationalized question:\n{selected_text}",
+        f"\nSelected operationalized core question:\n{selected_text}",
     ]
     if user_feedback:
         human_parts.append(
-            f"\nUser-provided guidance for this decomposition (treat as a strong steer, not a hard constraint):\n{user_feedback}"
+            f"\nUser-provided guidance (treat as a strong steer, not a hard constraint):\n{user_feedback}"
         )
 
     messages = [
-        SystemMessage(content=SYSTEM_PROMPT),
+        SystemMessage(content=system_prompt),
         HumanMessage(content="\n".join(human_parts)),
     ]
 
     with agent_log(logger, "Dr. Anika Patel", settings.sonnet_model):
-        llm = get_sonnet_llm()
-        structured_llm = llm.with_structured_output(ModularizationSchema, include_raw=True)
+        structured_llm = get_sonnet_llm().with_structured_output(
+            DecompositionSchema, include_raw=True
+        )
         raw_and_parsed = structured_llm.invoke(messages)
-        result: ModularizationSchema = raw_and_parsed["parsed"]
+        result: DecompositionSchema = raw_and_parsed["parsed"]
+        n_subs = sum(len(m.ideal_subquestions) for m in result.majors)
         logger.info(
             "llm_call",
             extra={
                 "persona": "Dr. Anika Patel",
+                "stage": "decompose",
                 "model": settings.sonnet_model,
-                "is_atomic": result.is_atomic,
-                "num_sub_questions": len(result.sub_questions),
+                "num_majors": len(result.majors),
+                "num_sub_questions": n_subs,
                 "has_user_feedback": bool(user_feedback),
                 **extract_token_usage(raw_and_parsed.get("raw")),
             },
         )
 
-    sub_questions = [sq.model_dump() for sq in result.sub_questions]
-    return {
-        "modular_sub_questions": sub_questions,
-        "messages": messages,
-    }
+    return {"proposed_tree": [m.model_dump() for m in result.majors], "messages": []}
+
+
+# ---------------------------------------------------------------------------
+# Pass 2 — per-sub-question market pick
+# ---------------------------------------------------------------------------
+
+PICK_SYSTEM_PROMPT = """You are Dr. Anika Patel matching a forecasting sub-question to a REAL prediction
+market. You are given the sub-question and a numbered list of candidate markets returned by platform
+search. Your job:
+
+- Pick the single candidate whose resolution BEST answers the sub-question (best_index).
+- Optionally pick a fallback (second_index) — the next-best candidate, or -1 if none.
+- Give a match_confidence: high (the market clearly resolves the sub-question), medium (closely related,
+  a reasonable proxy), or low (weak/tangential).
+- If NO candidate genuinely informs the sub-question, set best_index = -1 (no match). Never force a match.
+
+Judge on what the market actually RESOLVES, not surface keyword overlap. Prefer precise, on-topic,
+still-open markets. Indices are 0-based over the candidate list as presented."""
+
+
+class MarketPickSchema(BaseModel):
+    best_index: int = Field(description="0-based index of the best candidate, or -1 for no match")
+    second_index: int = Field(default=-1, description="0-based index of a fallback candidate, or -1")
+    match_confidence: Literal["high", "medium", "low"] = Field(
+        description="Confidence that the chosen market answers the sub-question"
+    )
+    reasoning: str = Field(description="One sentence on why this market fits (or why none do)")
+
+
+def _format_candidates(candidates: list[MarketCandidate]) -> str:
+    lines = []
+    for i, c in enumerate(candidates):
+        desc = f" — {c.description[:200]}" if c.description else ""
+        lines.append(f"[{i}] ({c.source}, {c.status}) {c.question}{desc}")
+    return "\n".join(lines)
+
+
+async def pick_best_market(
+    subquestion_text: str, domain_tag: str, candidates: list[MarketCandidate]
+) -> MarketPick:
+    """Anika's lightweight pick pass. Returns a MarketPick (no_match when appropriate)."""
+    if not candidates:
+        return MarketPick(market=None, no_match=True, confidence="low", reasoning="no candidates")
+
+    settings = get_settings()
+    messages = [
+        SystemMessage(content=PICK_SYSTEM_PROMPT),
+        HumanMessage(
+            content=(
+                f"Sub-question ({domain_tag}): {subquestion_text}\n\n"
+                f"Candidate markets:\n{_format_candidates(candidates)}\n\n"
+                f"Return best_index, second_index, match_confidence, reasoning."
+            )
+        ),
+    ]
+
+    structured_llm = get_sonnet_llm().with_structured_output(MarketPickSchema, include_raw=True)
+    raw_and_parsed = await structured_llm.ainvoke(messages)
+    result: MarketPickSchema = raw_and_parsed["parsed"]
+
+    def _at(idx: int) -> MarketCandidate | None:
+        return candidates[idx] if 0 <= idx < len(candidates) else None
+
+    best = _at(result.best_index)
+    if best is None:
+        return MarketPick(market=None, no_match=True, confidence=result.match_confidence,
+                          reasoning=result.reasoning)
+    second = _at(result.second_index)
+    if second is best:
+        second = None
+    return MarketPick(
+        market=best,
+        second=second,
+        confidence=result.match_confidence,
+        reasoning=result.reasoning,
+        no_match=False,
+    )

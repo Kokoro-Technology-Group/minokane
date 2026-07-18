@@ -10,8 +10,9 @@ from app.agents.graph import get_graph
 from app.agents.state import ForecastState
 from app.config import Settings, get_settings
 from app.models.schemas import (
+    Coverage,
+    ForecastComponent,
     ForecastSession,
-    ModularSubQuestion,
     OperationalizedQuestion,
     QuestionInput,
     SelectionInput,
@@ -162,7 +163,7 @@ async def select_operationalization(
 ) -> ForecastSession:
     """
     User selects (or edits) one operationalization. Resumes the graph through
-    modularization and synthesis.
+    Think: decompose → market match → market-backed forecast tree.
     """
     session = await store.get_session(session_id)
     if session is None:
@@ -193,30 +194,24 @@ async def select_operationalization(
     except Exception as e:
         logger.error(
             "graph_error",
-            extra={"session_id": session_id, "stage": "modularization", "error": str(e)},
+            extra={"session_id": session_id, "stage": "think", "error": str(e)},
         )
         raise HTTPException(status_code=500, detail=f"Agent pipeline error: {e}")
 
     snapshot = graph.get_state(config)
     final = snapshot.values
 
-    sub_questions = [
-        ModularSubQuestion(
-            id=str(uuid4()),
-            parent_id=body.operationalized_question.id,
-            text=sq["text"],
-            explanation=sq["explanation"],
-            domain_tag=sq["domain_tag"],
-            confidence_of_importance=sq["confidence_of_importance"],
-            llm_baseline_likelihood=sq["llm_baseline_likelihood"],
-        )
-        for sq in final.get("modular_sub_questions", [])
+    components = [
+        ForecastComponent.model_validate(c) for c in final.get("forecast_components", [])
     ]
+    coverage_raw = final.get("coverage")
+    coverage = Coverage.model_validate(coverage_raw) if coverage_raw else None
 
     session.selected_operationalization_id = body.operationalized_question.id
+    session.core_question = body.operationalized_question.text
     session.user_feedback = body.user_feedback
-    session.modular_sub_questions = sub_questions
-    session.final_summary = final.get("final_summary")
+    session.components = components
+    session.coverage = coverage
     session.status = "complete"
 
     await store.save_session(session)
@@ -224,8 +219,8 @@ async def select_operationalization(
         "select_operationalization_done",
         extra={
             "session_id": session_id,
-            "num_sub_questions": len(sub_questions),
-            "has_summary": session.final_summary is not None,
+            "num_majors": len(components),
+            "coverage": coverage.model_dump() if coverage else None,
         },
     )
     return session

@@ -120,14 +120,16 @@ def test_graph_builds_without_error():
 
 
 def test_graph_nodes_present():
-    """Graph should contain the expected node names."""
+    """Graph should contain the expected Ask + Think node names."""
     from app.agents.graph import build_graph
     from langgraph.checkpoint.memory import MemorySaver
 
     graph = build_graph(MemorySaver())
     node_names = set(graph.nodes.keys())
-    expected = {"operationalizer", "critic", "wait_for_selection", "modularizer", "synthesizer"}
+    expected = {"operationalizer", "critic", "wait_for_selection", "decompose", "market_match"}
     assert expected.issubset(node_names), f"Missing nodes: {expected - node_names}"
+    # Synthesizer (James) is deferred to Show and must NOT be wired into the graph.
+    assert "synthesizer" not in node_names
 
 
 # ---------------------------------------------------------------------------
@@ -383,20 +385,21 @@ def test_critic_test_mode_auto_approves():
     assert result["messages"] == []
 
 
-def test_modularizer_test_mode_returns_canned_sub_questions():
+def test_decompose_test_mode_returns_proposed_tree():
     import app.agents.personas.modularizer as mod_mod
 
     with patch.object(mod_mod, "run_test_intro", return_value="Message received. I'm Dr. Anika Patel; my focus is decomposing.") as mock_intro, \
          patch.object(mod_mod, "get_sonnet_llm") as mock_factory:
-        result = mod_mod.modularizer_node(_minimal_test_state())
+        result = mod_mod.decompose_node(_minimal_test_state())
 
     mock_intro.assert_called_once()
     mock_factory.assert_not_called()
-    assert "modular_sub_questions" in result
-    assert len(result["modular_sub_questions"]) == 4
-    assert result["modular_sub_questions"][0]["text"].startswith("TEST — Message received.")
-    tags = {sq["domain_tag"] for sq in result["modular_sub_questions"]}
-    assert len(tags) == 4  # spans 4 distinct domain tags
+    tree = result["proposed_tree"]
+    assert len(tree) == 2
+    # First major is a rollup with ideal sub-questions; second is atomic.
+    assert tree[0]["is_atomic"] is False and len(tree[0]["ideal_subquestions"]) == 2
+    assert tree[1]["is_atomic"] is True and tree[1]["ideal_subquestions"] == []
+    assert tree[0]["component"].startswith("TEST — Message received.")
     assert result["messages"] == []
 
 

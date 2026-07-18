@@ -1,22 +1,35 @@
 """
-LangGraph StateGraph wiring the full forecasting pipeline.
+LangGraph StateGraph wiring the Ask + Think pipeline.
 
-Flow:
+Ask:
   START → operationalizer → critic ──(approved | max revisions)──► wait_for_selection
                                   ↑────────(veto, n < 3)──────────┘
 
-  wait_for_selection ──(user selects)──► modularizer → synthesizer → END
+Think (rebuilt per prd_ask_think.md):
+  wait_for_selection ──(user selects)──► decompose ──► market_match ──► END
+
+`decompose` (Anika, pass 1) drafts majors + ideal sub-questions. `market_match`
+runs the deterministic service that searches Metaculus + Manifold, lets Anika
+pick and Marcus validate each match, fetches the weekly time_series, and emits
+the market-backed tree + coverage. The synthesizer (James) is deferred to Show
+and is intentionally NOT wired into this graph.
 """
+
+import asyncio
+import logging
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, START, StateGraph
-from langgraph.types import Command, interrupt
+from langgraph.types import interrupt
 
 from app.agents.personas.critic import critic_node
-from app.agents.personas.modularizer import modularizer_node
+from app.agents.personas.modularizer import decompose_node
 from app.agents.personas.operationalizer import operationalizer_node
-from app.agents.personas.synthesizer import synthesizer_node
+from app.agents.personas._test_mode import is_test_question, make_test_forecast_tree
 from app.agents.state import ForecastState
+from app.services.market_matching import build_forecast_tree
+
+logger = logging.getLogger(__name__)
 
 
 def wait_for_selection_node(state: ForecastState) -> dict:
@@ -38,6 +51,18 @@ def wait_for_selection_node(state: ForecastState) -> dict:
     return {"selected_option": payload}
 
 
+def market_match_node(state: ForecastState) -> dict:
+    """Run the async market-matching service and attach the forecast tree + coverage."""
+    if is_test_question(state.get("raw_question")):
+        components, coverage = make_test_forecast_tree(state.get("proposed_tree") or [])
+        return {"forecast_components": components, "coverage": coverage}
+
+    components, coverage = asyncio.run(
+        build_forecast_tree(state.get("proposed_tree") or [])
+    )
+    return {"forecast_components": components, "coverage": coverage}
+
+
 def _critic_router(state: ForecastState) -> str:
     if state["critic_approved"] or state["revision_count"] >= 3:
         return "wait_for_selection"
@@ -50,8 +75,8 @@ def build_graph(checkpointer: MemorySaver | None = None) -> StateGraph:
     builder.add_node("operationalizer", operationalizer_node)
     builder.add_node("critic", critic_node)
     builder.add_node("wait_for_selection", wait_for_selection_node)
-    builder.add_node("modularizer", modularizer_node)
-    builder.add_node("synthesizer", synthesizer_node)
+    builder.add_node("decompose", decompose_node)
+    builder.add_node("market_match", market_match_node)
 
     builder.add_edge(START, "operationalizer")
     builder.add_edge("operationalizer", "critic")
@@ -59,9 +84,9 @@ def build_graph(checkpointer: MemorySaver | None = None) -> StateGraph:
         "wait_for_selection": "wait_for_selection",
         "operationalizer": "operationalizer",
     })
-    builder.add_edge("wait_for_selection", "modularizer")
-    builder.add_edge("modularizer", "synthesizer")
-    builder.add_edge("synthesizer", END)
+    builder.add_edge("wait_for_selection", "decompose")
+    builder.add_edge("decompose", "market_match")
+    builder.add_edge("market_match", END)
 
     return builder.compile(checkpointer=checkpointer or MemorySaver())
 
