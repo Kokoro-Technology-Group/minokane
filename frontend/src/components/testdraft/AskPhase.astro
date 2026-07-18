@@ -1,0 +1,271 @@
+---
+/**
+ * ASK phase — two screens:
+ *   1. Question input (question + deadline + outcome)
+ *   2. Refine: yes/no clarifiers that "simmer" the question into a precise one.
+ *
+ * Rough draft: refined question is illustrative (pulled from fake data).
+ * Emits `testdraft:phase` -> { phase: "think" } when the user starts thinking.
+ */
+import { fakeDraft } from "../../data/fakeDraft";
+import { forecast } from "../../data/forecast";
+---
+
+<section class="ask">
+  <!-- Screen 1: input -->
+  <div class="ask-screen" id="ask-input">
+    <h2>Ask</h2>
+    <p class="ask-sub">State the question you want to forecast.</p>
+
+    <label class="field-label" for="td-question">Your question</label>
+    <textarea id="td-question" class="td-input" rows="3">{forecast.core}</textarea>
+
+    <div class="ask-row">
+      <div class="ask-col">
+        <label class="field-label" for="td-deadline">Deadline</label>
+        <input id="td-deadline" class="td-input" type="date" value={fakeDraft.defaultDeadline} />
+      </div>
+      <div class="ask-col">
+        <label class="field-label" for="td-outcome">Outcome</label>
+        <input id="td-outcome" class="td-input" type="text" value={fakeDraft.defaultOutcome} />
+      </div>
+    </div>
+
+    <button class="td-btn" id="td-to-refine">Refine question →</button>
+  </div>
+
+  <!-- Screen 2: refine -->
+  <div class="ask-screen" id="ask-refine" hidden>
+    <h2>Refine</h2>
+    <p class="ask-sub">
+      A few quick clarifiers to sharpen the question. Answer yes/no — we fold your
+      answers back into a single precise question.
+    </p>
+
+    <ul class="refine-list">
+      {
+        fakeDraft.refineQuestions.map((rq) => (
+          <li class="refine-item" data-id={rq.id}>
+            <p class="refine-prompt">{rq.prompt}</p>
+            <div class="refine-toggle" role="group">
+              <button
+                class:list={["refine-opt", rq.default && "is-on"]}
+                data-val="yes"
+              >
+                {rq.yesLabel}
+              </button>
+              <button
+                class:list={["refine-opt", !rq.default && "is-on"]}
+                data-val="no"
+              >
+                {rq.noLabel}
+              </button>
+            </div>
+          </li>
+        ))
+      }
+    </ul>
+
+    <div class="refined-box" id="td-refined-box" hidden>
+      <span class="refined-label">Refined question</span>
+      <p class="refined-text" id="td-refined-text"></p>
+    </div>
+
+    <div class="ask-actions">
+      <button class="td-btn td-btn--ghost" id="td-back">← Back</button>
+      <button class="td-btn" id="td-simmer">Simmer down ✦</button>
+      <button class="td-btn" id="td-to-think" hidden>Start thinking →</button>
+    </div>
+  </div>
+</section>
+
+<script>
+  import { forecast } from "../../data/forecast";
+
+  const inputScreen = document.getElementById("ask-input")!;
+  const refineScreen = document.getElementById("ask-refine")!;
+
+  document.getElementById("td-to-refine")!.addEventListener("click", () => {
+    inputScreen.hidden = true;
+    refineScreen.hidden = false;
+  });
+
+  document.getElementById("td-back")!.addEventListener("click", () => {
+    refineScreen.hidden = true;
+    inputScreen.hidden = false;
+  });
+
+  // Yes/No toggles (mutually exclusive per item)
+  refineScreen.querySelectorAll<HTMLElement>(".refine-item").forEach((item) => {
+    const opts = item.querySelectorAll<HTMLButtonElement>(".refine-opt");
+    opts.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        opts.forEach((o) => o.classList.remove("is-on"));
+        btn.classList.add("is-on");
+      });
+    });
+  });
+
+  const refinedBox = document.getElementById("td-refined-box")!;
+  const refinedText = document.getElementById("td-refined-text")!;
+  const simmerBtn = document.getElementById("td-simmer")!;
+  const toThinkBtn = document.getElementById("td-to-think")!;
+
+  simmerBtn.addEventListener("click", () => {
+    // Rough draft: the precise question is illustrative — use the core question.
+    refinedText.textContent = forecast.core;
+    refinedBox.hidden = false;
+    simmerBtn.hidden = true;
+    toThinkBtn.hidden = false;
+    refinedBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+
+  toThinkBtn.addEventListener("click", () => {
+    document.dispatchEvent(
+      new CustomEvent("testdraft:phase", { detail: { phase: "think" } }),
+    );
+  });
+</script>
+
+<style>
+  .ask {
+    width: 100%;
+  }
+  .ask h2 {
+    font-size: 1.4rem;
+    font-weight: 500;
+    color: var(--color-primary);
+    margin: 0 0 0.25rem;
+  }
+  .ask-sub {
+    color: var(--color-text-muted);
+    font-size: 0.9rem;
+    margin: 0 0 1.5rem;
+  }
+  .field-label {
+    display: block;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+    margin: 0 0 0.35rem;
+  }
+  .td-input {
+    width: 100%;
+    box-sizing: border-box;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 10px;
+    padding: 0.7rem 0.85rem;
+    font: inherit;
+    color: var(--color-text);
+    margin-bottom: 1rem;
+    resize: vertical;
+  }
+  .td-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 20%, transparent);
+  }
+  .ask-row {
+    display: flex;
+    gap: 1rem;
+  }
+  .ask-col {
+    flex: 1;
+  }
+  .td-btn {
+    background: var(--color-primary);
+    color: #fff;
+    border: none;
+    border-radius: 999px;
+    padding: 0.6rem 1.3rem;
+    font: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    transition: filter 0.15s ease, transform 0.05s ease;
+  }
+  .td-btn:hover { filter: brightness(1.07); }
+  .td-btn:active { transform: translateY(1px); }
+  .td-btn--ghost {
+    background: transparent;
+    color: var(--color-text-muted);
+    border: 1px solid var(--color-border);
+  }
+
+  .refine-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .refine-item {
+    background: var(--color-surface);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+  }
+  .refine-prompt {
+    margin: 0 0 0.7rem;
+    font-size: 0.95rem;
+    color: var(--color-text);
+  }
+  .refine-toggle {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+  .refine-opt {
+    flex: 1;
+    min-width: 140px;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 999px;
+    padding: 0.45rem 0.9rem;
+    font: inherit;
+    font-size: 0.85rem;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+  .refine-opt.is-on {
+    background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    font-weight: 500;
+  }
+
+  .refined-box {
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    border: 1px solid var(--color-primary);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+    margin-bottom: 1.25rem;
+    animation: pop 0.35s ease;
+  }
+  .refined-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--color-primary);
+  }
+  .refined-text {
+    margin: 0.35rem 0 0;
+    font-size: 1.05rem;
+    color: var(--color-text);
+    line-height: 1.45;
+  }
+  .ask-actions {
+    display: flex;
+    gap: 0.6rem;
+    align-items: center;
+  }
+  @keyframes pop {
+    from { opacity: 0; transform: translateY(6px) scale(0.98); }
+    to { opacity: 1; transform: none; }
+  }
+  [hidden] { display: none !important; }
+</style>

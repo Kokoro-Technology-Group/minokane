@@ -16,6 +16,7 @@ from app.agents.personas._test_mode import (
     make_test_summary,
     run_test_intro,
 )
+from app.agents.personas._mock_mode import is_mock_mode, make_mock_summary
 from app.config import get_settings
 from app.logging_setup import agent_log, extract_token_usage
 
@@ -51,6 +52,12 @@ class SynthesisSchema(BaseModel):
 
 
 def synthesizer_node(state: ForecastState) -> dict:
+    if is_mock_mode():
+        return {
+            "final_summary": make_mock_summary(),
+            "messages": [],
+        }
+
     if is_test_question(state.get("raw_question")):
         intro = run_test_intro(
             persona_name="James Harrington",

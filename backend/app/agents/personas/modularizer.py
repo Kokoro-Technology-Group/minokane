@@ -26,6 +26,7 @@ from app.agents.personas._test_mode import (
     make_test_proposed_tree,
     run_test_intro,
 )
+from app.agents.personas._mock_mode import is_mock_mode, make_mock_sub_questions
 from app.config import get_settings
 from app.integrations.models import MarketCandidate, MarketPick
 from app.logging_setup import agent_log, extract_token_usage
@@ -88,6 +89,12 @@ class DecompositionSchema(BaseModel):
 
 def decompose_node(state: ForecastState) -> dict:
     settings = get_settings()
+def modularizer_node(state: ForecastState) -> dict:
+    if is_mock_mode():
+        return {
+            "modular_sub_questions": make_mock_sub_questions(),
+            "messages": [],
+        }
 
     if is_test_question(state.get("raw_question")):
         intro = run_test_intro(
