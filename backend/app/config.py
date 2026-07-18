@@ -11,6 +11,13 @@ class Settings(BaseSettings):
     data_file_path: str = "./data/questions.json"
     api_key: str = "minokane-dev-key"
 
+    # Full offline mock. When true, every persona returns schema-valid lorem
+    # ipsum data with ZERO Anthropic API calls (no key required). Drives
+    # ./test.sh — exercises the whole FastAPI + LangGraph + storage + frontend
+    # path without spending tokens. Distinct from the "TEST" typed-input mode,
+    # which still makes one real intro call per persona.
+    mock_llm: bool = False
+
     openrouter_api_key: str = ""
     openrouter_base_url: str = "https://openrouter.ai/api/v1"
 

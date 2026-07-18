@@ -27,6 +27,10 @@ from app.agents.personas._test_mode import (
     make_test_operationalized_options,
     run_test_intro,
 )
+from app.agents.personas._mock_mode import (
+    is_mock_mode,
+    make_mock_operationalized_options,
+)
 from app.config import get_settings, is_reasoning_model
 from app.logging_setup import agent_log, extract_token_usage
 
@@ -178,6 +182,12 @@ def _run_research_pass(messages: list, settings) -> tuple[str, int]:
 
 def operationalizer_node(state: ForecastState) -> dict:
     settings = get_settings()
+
+    if is_mock_mode():
+        return {
+            "operationalized_options": make_mock_operationalized_options(),
+            "messages": [],
+        }
 
     if is_test_question(state.get("raw_question")):
         intro = run_test_intro(
