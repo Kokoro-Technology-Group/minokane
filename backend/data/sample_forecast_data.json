@@ -1,0 +1,1188 @@
+{
+  "id": "a1683836-0095-42c0-b198-a2590e5907d9",
+  "raw_question": "Is AI going to change tech in a big way soon?",
+  "core_question": "Will artificial intelligence meaningfully reshape the technology industry by the end of 2027?",
+  "created_at": "2026-07-18T00:00:00Z",
+  "description": "Sample/fake forecasting data for frontend development. The operationalized core_question is decomposed into major-category rollups (grouping nodes), each of which fans out into minor-category components. Every minor maps 1:1 to a real prediction market (LLM-matched to Metaculus or Manifold) and carries the market question, source, market_url, outcome_options, and a weekly probability time_series, plus domain/importance/likelihood tags. NOTE: market_url values are illustrative placeholders, not live links, and all probabilities are synthetic.",
+  "components": [
+    {
+      "id": "534b4407-ec52-47cf-888b-71139534f57c",
+      "type": "major_category",
+      "component": "Will frontier AI model capability advance faster than in the prior two years?",
+      "domain_tag": "technology",
+      "confidence_of_importance": "high",
+      "components": [
+        {
+          "id": "3988b508-dca4-497a-ad22-865fed696ea2",
+          "type": "minor_category",
+          "component": "Will a publicly released model exceed 90% on GPQA Diamond (graduate-level reasoning) by end of 2027?",
+          "domain_tag": "technology",
+          "confidence_of_importance": "high",
+          "llm_baseline_likelihood": "high",
+          "source": "metaculus",
+          "market_url": "https://www.metaculus.com/questions/frontier-gpqa-diamond-90-by-2027/",
+          "outcome_options": [
+            "Yes",
+            "No"
+          ],
+          "time_series": [
+            {
+              "date": "2026-01-05",
+              "probability": 51.2
+            },
+            {
+              "date": "2026-01-12",
+              "probability": 56.2
+            },
+            {
+              "date": "2026-01-19",
+              "probability": 57.1
+            },
+            {
+              "date": "2026-01-26",
+              "probability": 59.3
+            },
+            {
+              "date": "2026-02-02",
+              "probability": 59.8
+            },
+            {
+              "date": "2026-02-09",
+              "probability": 58.0
+            },
+            {
+              "date": "2026-02-16",
+              "probability": 57.9
+            },
+            {
+              "date": "2026-02-23",
+              "probability": 60.9
+            },
+            {
+              "date": "2026-03-02",
+              "probability": 59.0
+            },
+            {
+              "date": "2026-03-09",
+              "probability": 60.2
+            },
+            {
+              "date": "2026-03-16",
+              "probability": 62.6
+            },
+            {
+              "date": "2026-03-23",
+              "probability": 61.3
+            },
+            {
+              "date": "2026-03-30",
+              "probability": 64.1
+            },
+            {
+              "date": "2026-04-06",
+              "probability": 64.9
+            },
+            {
+              "date": "2026-04-13",
+              "probability": 63.2
+            },
+            {
+              "date": "2026-04-20",
+              "probability": 67.9
+            },
+            {
+              "date": "2026-04-27",
+              "probability": 68.3
+            },
+            {
+              "date": "2026-05-04",
+              "probability": 68.7
+            },
+            {
+              "date": "2026-05-11",
+              "probability": 67.1
+            },
+            {
+              "date": "2026-05-18",
+              "probability": 69.7
+            },
+            {
+              "date": "2026-05-25",
+              "probability": 72.6
+            },
+            {
+              "date": "2026-06-01",
+              "probability": 71.5
+            },
+            {
+              "date": "2026-06-08",
+              "probability": 73.1
+            },
+            {
+              "date": "2026-06-15",
+              "probability": 74.1
+            },
+            {
+              "date": "2026-06-22",
+              "probability": 73.8
+            },
+            {
+              "date": "2026-06-29",
+              "probability": 73.8
+            },
+            {
+              "date": "2026-07-06",
+              "probability": 75.6
+            },
+            {
+              "date": "2026-07-13",
+              "probability": 77.0
+            }
+          ]
+        },
+        {
+          "id": "b1c2d3e4-0001-4a11-9b22-0aa1bb2cc301",
+          "type": "minor_category",
+          "component": "Will an AI system achieve IMO gold-medal performance under competition conditions before 2028?",
+          "domain_tag": "technology",
+          "confidence_of_importance": "medium",
+          "llm_baseline_likelihood": "medium",
+          "source": "metaculus",
+          "market_url": "https://www.metaculus.com/questions/ai-imo-gold-before-2028/",
+          "outcome_options": [
+            "Yes",
+            "No"
+          ],
+          "time_series": [
+            {
+              "date": "2026-01-05",
+              "probability": 39.3
+            },
+            {
+              "date": "2026-01-12",
+              "probability": 40.0
+            },
+            {
+              "date": "2026-01-19",
+              "probability": 38.8
+            },
+            {
+              "date": "2026-01-26",
+              "probability": 38.1
+            },
+            {
+              "date": "2026-02-02",
+              "probability": 42.3
+            },
+            {
+              "date": "2026-02-09",
+              "probability": 37.9
+            },
+            {
+              "date": "2026-02-16",
+              "probability": 41.2
+            },
+            {
+              "date": "2026-02-23",
+              "probability": 39.2
+            },
+            {
+              "date": "2026-03-02",
+              "probability": 44.1
+            },
+            {
+              "date": "2026-03-09",
+              "probability": 43.0
+            },
+            {
+              "date": "2026-03-16",
+              "probability": 42.9
+            },
+            {
+              "date": "2026-03-23",
+              "probability": 44.2
+            },
+            {
+              "date": "2026-03-30",
+              "probability": 42.4
+            },
+            {
+              "date": "2026-04-06",
+              "probability": 43.4
+            },
+            {
+              "date": "2026-04-13",
+              "probability": 47.5
+            },
+            {
+              "date": "2026-04-20",
+              "probability": 45.2
+            },
+            {
+              "date": "2026-04-27",
+              "probability": 43.5
+            },
+            {
+              "date": "2026-05-04",
+              "probability": 43.0
+            },
+            {
+              "date": "2026-05-11",
+              "probability": 47.9
+            },
+            {
+              "date": "2026-05-18",
+              "probability": 44.5
+            },
+            {
+              "date": "2026-05-25",
+              "probability": 47.6
+            },
+            {
+              "date": "2026-06-01",
+              "probability": 44.7
+            },
+            {
+              "date": "2026-06-08",
+              "probability": 45.5
+            },
+            {
+              "date": "2026-06-15",
+              "probability": 46.5
+            },
+            {
+              "date": "2026-06-22",
+              "probability": 50.4
+            },
+            {
+              "date": "2026-06-29",
+              "probability": 45.9
+            },
+            {
+              "date": "2026-07-06",
+              "probability": 46.9
+            },
+            {
+              "date": "2026-07-13",
+              "probability": 48.0
+            }
+          ]
+        },
+        {
+          "id": "b1c2d3e4-0002-4a11-9b22-0aa1bb2cc302",
+          "type": "minor_category",
+          "component": "Will a widely adopted frontier model ship a >1M-token context window by end of 2027?",
+          "domain_tag": "technology",
+          "confidence_of_importance": "medium",
+          "llm_baseline_likelihood": "high",
+          "source": "manifold",
+          "market_url": "https://manifold.markets/example/frontier-1m-context-widely-adopted-2027",
+          "outcome_options": [
+            "Yes",
+            "No"
+          ],
+          "time_series": [
+            {
+              "date": "2026-01-05",
+              "probability": 57.9
+            },
+            {
+              "date": "2026-01-12",
+              "probability": 59.9
+            },
+            {
+              "date": "2026-01-19",
+              "probability": 61.1
+            },
+            {
+              "date": "2026-01-26",
+              "probability": 58.9
+            },
+            {
+              "date": "2026-02-02",
+              "probability": 60.1
+            },
+            {
+              "date": "2026-02-09",
+              "probability": 56.9
+            },
+            {
+              "date": "2026-02-16",
+              "probability": 62.5
+            },
+            {
+              "date": "2026-02-23",
+              "probability": 60.9
+            },
+            {
+              "date": "2026-03-02",
+              "probability": 63.1
+            },
+            {
+              "date": "2026-03-09",
+              "probability": 58.9
+            },
+            {
+              "date": "2026-03-16",
+              "probability": 63.2
+            },
+            {
+              "date": "2026-03-23",
+              "probability": 62.6
+            },
+            {
+              "date": "2026-03-30",
+              "probability": 61.9
+            },
+            {
+              "date": "2026-04-06",
+              "probability": 62.7
+            },
+            {
+              "date": "2026-04-13",
+              "probability": 63.7
+            },
+            {
+              "date": "2026-04-20",
+              "probability": 64.2
+            },
+            {
+              "date": "2026-04-27",
+              "probability": 65.1
+            },
+            {
+              "date": "2026-05-04",
+              "probability": 66.3
+            },
+            {
+              "date": "2026-05-11",
+              "probability": 66.7
+            },
+            {
+              "date": "2026-05-18",
+              "probability": 68.2
+            },
+            {
+              "date": "2026-05-25",
+              "probability": 65.2
+            },
+            {
+              "date": "2026-06-01",
+              "probability": 67.2
+            },
+            {
+              "date": "2026-06-08",
+              "probability": 69.3
+            },
+            {
+              "date": "2026-06-15",
+              "probability": 68.8
+            },
+            {
+              "date": "2026-06-22",
+              "probability": 68.9
+            },
+            {
+              "date": "2026-06-29",
+              "probability": 71.5
+            },
+            {
+              "date": "2026-07-06",
+              "probability": 72.2
+            },
+            {
+              "date": "2026-07-13",
+              "probability": 71.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "a7f10b22-2001-4c33-8d44-1bb2cc3dd401",
+      "type": "major_category",
+      "component": "Will AI drive a structural shift in the technology labor market and economics?",
+      "domain_tag": "economics",
+      "confidence_of_importance": "high",
+      "components": [
+        {
+          "id": "c3d4e5f6-0003-4b22-ac33-2cc3dd4ee501",
+          "type": "minor_category",
+          "component": "Will cumulative 2025-2027 AI data-center capex by the top 4 US hyperscalers exceed $500B?",
+          "domain_tag": "economics",
+          "confidence_of_importance": "high",
+          "llm_baseline_likelihood": "high",
+          "source": "metaculus",
+          "market_url": "https://www.metaculus.com/questions/hyperscaler-ai-capex-500b-2025-2027/",
+          "outcome_options": [
+            "Yes",
+            "No"
+          ],
+          "time_series": [
+            {
+              "date": "2026-01-05",
+              "probability": 67.9
+            },
+            {
+              "date": "2026-01-12",
+              "probability": 67.1
+            },
+            {
+              "date": "2026-01-19",
+              "probability": 69.3
+            },
+            {
+              "date": "2026-01-26",
+              "probability": 69.4
+            },
+            {
+              "date": "2026-02-02",
+              "probability": 70.0
+            },
+            {
+              "date": "2026-02-09",
+              "probability": 69.5
+            },
+            {
+              "date": "2026-02-16",
+              "probability": 70.5
+            },
+            {
+              "date": "2026-02-23",
+              "probability": 72.5
+            },
+            {
+              "date": "2026-03-02",
+              "probability": 72.5
+            },
+            {
+              "date": "2026-03-09",
+              "probability": 71.1
+            },
+            {
+              "date": "2026-03-16",
+              "probability": 73.5
+            },
+            {
+              "date": "2026-03-23",
+              "probability": 73.1
+            },
+            {
+              "date": "2026-03-30",
+              "probability": 72.1
+            },
+            {
+              "date": "2026-04-06",
+              "probability": 76.0
+            },
+            {
+              "date": "2026-04-13",
+              "probability": 75.1
+            },
+            {
+              "date": "2026-04-20",
+              "probability": 76.1
+            },
+            {
+              "date": "2026-04-27",
+              "probability": 75.2
+            },
+            {
+              "date": "2026-05-04",
+              "probability": 75.0
+            },
+            {
+              "date": "2026-05-11",
+              "probability": 76.3
+            },
+            {
+              "date": "2026-05-18",
+              "probability": 76.8
+            },
+            {
+              "date": "2026-05-25",
+              "probability": 78.4
+            },
+            {
+              "date": "2026-06-01",
+              "probability": 81.2
+            },
+            {
+              "date": "2026-06-08",
+              "probability": 81.0
+            },
+            {
+              "date": "2026-06-15",
+              "probability": 81.9
+            },
+            {
+              "date": "2026-06-22",
+              "probability": 83.0
+            },
+            {
+              "date": "2026-06-29",
+              "probability": 82.6
+            },
+            {
+              "date": "2026-07-06",
+              "probability": 81.4
+            },
+            {
+              "date": "2026-07-13",
+              "probability": 82.0
+            }
+          ]
+        },
+        {
+          "id": "c3d4e5f6-0004-4b22-ac33-2cc3dd4ee502",
+          "type": "minor_category",
+          "component": "Will any Fortune 500 company attribute a >10% headcount reduction to AI automation by end of 2027?",
+          "domain_tag": "economics",
+          "confidence_of_importance": "medium",
+          "llm_baseline_likelihood": "medium",
+          "source": "manifold",
+          "market_url": "https://manifold.markets/example/fortune500-10pct-ai-headcount-cut-2027",
+          "outcome_options": [
+            "Yes",
+            "No"
+          ],
+          "time_series": [
+            {
+              "date": "2026-01-05",
+              "probability": 37.1
+            },
+            {
+              "date": "2026-01-12",
+              "probability": 40.0
+            },
+            {
+              "date": "2026-01-19",
+              "probability": 36.7
+            },
+            {
+              "date": "2026-01-26",
+              "probability": 35.4
+            },
+            {
+              "date": "2026-02-02",
+              "probability": 35.7
+            },
+            {
+              "date": "2026-02-09",
+              "probability": 37.4
+            },
+            {
+              "date": "2026-02-16",
+              "probability": 33.8
+            },
+            {
+              "date": "2026-02-23",
+              "probability": 37.8
+            },
+            {
+              "date": "2026-03-02",
+              "probability": 38.4
+            },
+            {
+              "date": "2026-03-09",
+              "probability": 40.1
+            },
+            {
+              "date": "2026-03-16",
+              "probability": 39.6
+            },
+            {
+              "date": "2026-03-23",
+              "probability": 38.2
+            },
+            {
+              "date": "2026-03-30",
+              "probability": 39.2
+            },
+            {
+              "date": "2026-04-06",
+              "probability": 38.6
+            },
+            {
+              "date": "2026-04-13",
+              "probability": 39.9
+            },
+            {
+              "date": "2026-04-20",
+              "probability": 41.5
+            },
+            {
+              "date": "2026-04-27",
+              "probability": 41.3
+            },
+            {
+              "date": "2026-05-04",
+              "probability": 37.6
+            },
+            {
+              "date": "2026-05-11",
+              "probability": 39.1
+            },
+            {
+              "date": "2026-05-18",
+              "probability": 42.4
+            },
+            {
+              "date": "2026-05-25",
+              "probability": 41.6
+            },
+            {
+              "date": "2026-06-01",
+              "probability": 41.7
+            },
+            {
+              "date": "2026-06-08",
+              "probability": 44.3
+            },
+            {
+              "date": "2026-06-15",
+              "probability": 43.0
+            },
+            {
+              "date": "2026-06-22",
+              "probability": 45.2
+            },
+            {
+              "date": "2026-06-29",
+              "probability": 43.2
+            },
+            {
+              "date": "2026-07-06",
+              "probability": 44.2
+            },
+            {
+              "date": "2026-07-13",
+              "probability": 44.0
+            }
+          ]
+        },
+        {
+          "id": "c3d4e5f6-0005-4b22-ac33-2cc3dd4ee503",
+          "type": "minor_category",
+          "component": "Will AI-related roles exceed 5% of new US software-engineering job postings by end of 2027?",
+          "domain_tag": "economics",
+          "confidence_of_importance": "low",
+          "llm_baseline_likelihood": "low",
+          "source": "manifold",
+          "market_url": "https://manifold.markets/example/ai-roles-5pct-swe-postings-2027",
+          "outcome_options": [
+            "Yes",
+            "No"
+          ],
+          "time_series": [
+            {
+              "date": "2026-01-05",
+              "probability": 25.7
+            },
+            {
+              "date": "2026-01-12",
+              "probability": 25.9
+            },
+            {
+              "date": "2026-01-19",
+              "probability": 25.3
+            },
+            {
+              "date": "2026-01-26",
+              "probability": 28.1
+            },
+            {
+              "date": "2026-02-02",
+              "probability": 27.8
+            },
+            {
+              "date": "2026-02-09",
+              "probability": 25.1
+            },
+            {
+              "date": "2026-02-16",
+              "probability": 28.8
+            },
+            {
+              "date": "2026-02-23",
+              "probability": 28.5
+            },
+            {
+              "date": "2026-03-02",
+              "probability": 27.8
+            },
+            {
+              "date": "2026-03-09",
+              "probability": 29.3
+            },
+            {
+              "date": "2026-03-16",
+              "probability": 30.0
+            },
+            {
+              "date": "2026-03-23",
+              "probability": 26.1
+            },
+            {
+              "date": "2026-03-30",
+              "probability": 27.1
+            },
+            {
+              "date": "2026-04-06",
+              "probability": 30.4
+            },
+            {
+              "date": "2026-04-13",
+              "probability": 30.9
+            },
+            {
+              "date": "2026-04-20",
+              "probability": 28.8
+            },
+            {
+              "date": "2026-04-27",
+              "probability": 28.4
+            },
+            {
+              "date": "2026-05-04",
+              "probability": 29.8
+            },
+            {
+              "date": "2026-05-11",
+              "probability": 28.3
+            },
+            {
+              "date": "2026-05-18",
+              "probability": 30.1
+            },
+            {
+              "date": "2026-05-25",
+              "probability": 30.7
+            },
+            {
+              "date": "2026-06-01",
+              "probability": 31.5
+            },
+            {
+              "date": "2026-06-08",
+              "probability": 27.3
+            },
+            {
+              "date": "2026-06-15",
+              "probability": 28.2
+            },
+            {
+              "date": "2026-06-22",
+              "probability": 29.2
+            },
+            {
+              "date": "2026-06-29",
+              "probability": 31.2
+            },
+            {
+              "date": "2026-07-06",
+              "probability": 31.8
+            },
+            {
+              "date": "2026-07-13",
+              "probability": 31.0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "d5e6f7a8-3001-4d55-9e66-3dd4ee5ff601",
+      "type": "major_category",
+      "component": "Will AI governance and public trust materially shape how the technology is deployed?",
+      "domain_tag": "policy",
+      "confidence_of_importance": "medium",
+      "components": [
+        {
+          "id": "e6f7a8b9-0006-4e33-bf44-4ee5ff6aa701",
+          "type": "minor_category",
+          "component": "Will the US pass comprehensive federal AI legislation before 2028?",
+          "domain_tag": "policy",
+          "confidence_of_importance": "high",
+          "llm_baseline_likelihood": "low",
+          "source": "metaculus",
+          "market_url": "https://www.metaculus.com/questions/us-federal-ai-legislation-before-2028/",
+          "outcome_options": [
+            "Yes",
+            "No"
+          ],
+          "time_series": [
+            {
+              "date": "2026-01-05",
+              "probability": 30.8
+            },
+            {
+              "date": "2026-01-12",
+              "probability": 30.4
+            },
+            {
+              "date": "2026-01-19",
+              "probability": 31.0
+            },
+            {
+              "date": "2026-01-26",
+              "probability": 29.2
+            },
+            {
+              "date": "2026-02-02",
+              "probability": 29.2
+            },
+            {
+              "date": "2026-02-09",
+              "probability": 27.8
+            },
+            {
+              "date": "2026-02-16",
+              "probability": 30.1
+            },
+            {
+              "date": "2026-02-23",
+              "probability": 28.3
+            },
+            {
+              "date": "2026-03-02",
+              "probability": 27.5
+            },
+            {
+              "date": "2026-03-09",
+              "probability": 28.9
+            },
+            {
+              "date": "2026-03-16",
+              "probability": 30.1
+            },
+            {
+              "date": "2026-03-23",
+              "probability": 24.1
+            },
+            {
+              "date": "2026-03-30",
+              "probability": 26.3
+            },
+            {
+              "date": "2026-04-06",
+              "probability": 23.4
+            },
+            {
+              "date": "2026-04-13",
+              "probability": 29.1
+            },
+            {
+              "date": "2026-04-20",
+              "probability": 28.0
+            },
+            {
+              "date": "2026-04-27",
+              "probability": 26.6
+            },
+            {
+              "date": "2026-05-04",
+              "probability": 24.0
+            },
+            {
+              "date": "2026-05-11",
+              "probability": 27.6
+            },
+            {
+              "date": "2026-05-18",
+              "probability": 25.6
+            },
+            {
+              "date": "2026-05-25",
+              "probability": 24.5
+            },
+            {
+              "date": "2026-06-01",
+              "probability": 25.3
+            },
+            {
+              "date": "2026-06-08",
+              "probability": 21.5
+            },
+            {
+              "date": "2026-06-15",
+              "probability": 28.2
+            },
+            {
+              "date": "2026-06-22",
+              "probability": 20.8
+            },
+            {
+              "date": "2026-06-29",
+              "probability": 23.4
+            },
+            {
+              "date": "2026-07-06",
+              "probability": 23.0
+            },
+            {
+              "date": "2026-07-13",
+              "probability": 22.0
+            }
+          ]
+        },
+        {
+          "id": "e6f7a8b9-0007-4e33-bf44-4ee5ff6aa702",
+          "type": "minor_category",
+          "component": "Will the EU AI Act's high-risk provisions be fully in force and enforced by end of 2027?",
+          "domain_tag": "policy",
+          "confidence_of_importance": "medium",
+          "llm_baseline_likelihood": "medium",
+          "source": "metaculus",
+          "market_url": "https://www.metaculus.com/questions/eu-ai-act-high-risk-enforced-2027/",
+          "outcome_options": [
+            "Yes",
+            "No"
+          ],
+          "time_series": [
+            {
+              "date": "2026-01-05",
+              "probability": 57.5
+            },
+            {
+              "date": "2026-01-12",
+              "probability": 56.3
+            },
+            {
+              "date": "2026-01-19",
+              "probability": 56.9
+            },
+            {
+              "date": "2026-01-26",
+              "probability": 57.4
+            },
+            {
+              "date": "2026-02-02",
+              "probability": 58.2
+            },
+            {
+              "date": "2026-02-09",
+              "probability": 58.8
+            },
+            {
+              "date": "2026-02-16",
+              "probability": 57.5
+            },
+            {
+              "date": "2026-02-23",
+              "probability": 59.9
+            },
+            {
+              "date": "2026-03-02",
+              "probability": 59.8
+            },
+            {
+              "date": "2026-03-09",
+              "probability": 59.7
+            },
+            {
+              "date": "2026-03-16",
+              "probability": 59.1
+            },
+            {
+              "date": "2026-03-23",
+              "probability": 60.2
+            },
+            {
+              "date": "2026-03-30",
+              "probability": 61.1
+            },
+            {
+              "date": "2026-04-06",
+              "probability": 59.7
+            },
+            {
+              "date": "2026-04-13",
+              "probability": 60.3
+            },
+            {
+              "date": "2026-04-20",
+              "probability": 61.1
+            },
+            {
+              "date": "2026-04-27",
+              "probability": 63.5
+            },
+            {
+              "date": "2026-05-04",
+              "probability": 62.8
+            },
+            {
+              "date": "2026-05-11",
+              "probability": 60.3
+            },
+            {
+              "date": "2026-05-18",
+              "probability": 61.7
+            },
+            {
+              "date": "2026-05-25",
+              "probability": 60.1
+            },
+            {
+              "date": "2026-06-01",
+              "probability": 60.0
+            },
+            {
+              "date": "2026-06-08",
+              "probability": 59.9
+            },
+            {
+              "date": "2026-06-15",
+              "probability": 64.9
+            },
+            {
+              "date": "2026-06-22",
+              "probability": 63.4
+            },
+            {
+              "date": "2026-06-29",
+              "probability": 62.0
+            },
+            {
+              "date": "2026-07-06",
+              "probability": 63.6
+            },
+            {
+              "date": "2026-07-13",
+              "probability": 63.0
+            }
+          ]
+        },
+        {
+          "id": "e6f7a8b9-0008-4e33-bf44-4ee5ff6aa703",
+          "type": "minor_category",
+          "component": "Will a major AI-safety incident trigger an emergency regulatory response in any G7 country by end of 2027?",
+          "domain_tag": "policy",
+          "confidence_of_importance": "medium",
+          "llm_baseline_likelihood": "low",
+          "source": "manifold",
+          "market_url": "https://manifold.markets/example/ai-safety-incident-g7-emergency-response-2027",
+          "outcome_options": [
+            "Yes",
+            "No"
+          ],
+          "time_series": [
+            {
+              "date": "2026-01-05",
+              "probability": 22.8
+            },
+            {
+              "date": "2026-01-12",
+              "probability": 21.3
+            },
+            {
+              "date": "2026-01-19",
+              "probability": 21.6
+            },
+            {
+              "date": "2026-01-26",
+              "probability": 21.9
+            },
+            {
+              "date": "2026-02-02",
+              "probability": 21.3
+            },
+            {
+              "date": "2026-02-09",
+              "probability": 22.0
+            },
+            {
+              "date": "2026-02-16",
+              "probability": 22.6
+            },
+            {
+              "date": "2026-02-23",
+              "probability": 22.6
+            },
+            {
+              "date": "2026-03-02",
+              "probability": 24.9
+            },
+            {
+              "date": "2026-03-09",
+              "probability": 22.5
+            },
+            {
+              "date": "2026-03-16",
+              "probability": 20.3
+            },
+            {
+              "date": "2026-03-23",
+              "probability": 24.1
+            },
+            {
+              "date": "2026-03-30",
+              "probability": 23.7
+            },
+            {
+              "date": "2026-04-06",
+              "probability": 25.9
+            },
+            {
+              "date": "2026-04-13",
+              "probability": 25.2
+            },
+            {
+              "date": "2026-04-20",
+              "probability": 23.9
+            },
+            {
+              "date": "2026-04-27",
+              "probability": 24.5
+            },
+            {
+              "date": "2026-05-04",
+              "probability": 27.5
+            },
+            {
+              "date": "2026-05-11",
+              "probability": 24.7
+            },
+            {
+              "date": "2026-05-18",
+              "probability": 27.9
+            },
+            {
+              "date": "2026-05-25",
+              "probability": 25.0
+            },
+            {
+              "date": "2026-06-01",
+              "probability": 25.4
+            },
+            {
+              "date": "2026-06-08",
+              "probability": 24.9
+            },
+            {
+              "date": "2026-06-15",
+              "probability": 22.4
+            },
+            {
+              "date": "2026-06-22",
+              "probability": 26.3
+            },
+            {
+              "date": "2026-06-29",
+              "probability": 26.4
+            },
+            {
+              "date": "2026-07-06",
+              "probability": 25.8
+            },
+            {
+              "date": "2026-07-13",
+              "probability": 27.0
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
