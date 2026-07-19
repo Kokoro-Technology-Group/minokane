@@ -36,6 +36,46 @@ export interface ModularSubQuestion {
   llm_baseline_likelihood: "high" | "medium" | "low";
 }
 
+export type Confidence = "high" | "medium" | "low";
+export type MarketSource = "metaculus" | "manifold";
+export type MarketStatus = "open" | "resolved" | "closed";
+
+export interface TimeSeriesPoint {
+  date: string; // "YYYY-MM-DD"
+  probability: number; // P(Yes) as a percent, 0..100
+}
+
+/**
+ * A node in the Think forecast tree. A node is a market leaf iff it has no
+ * `components` (then it carries source/market_id/market_url/status/
+ * outcome_options/time_series); otherwise it is a rollup grouping node.
+ */
+export interface ForecastComponent {
+  id: string;
+  type: "major_category" | "minor_category";
+  component: string; // for market nodes: the market's canonical question
+  domain_tag: string;
+  confidence_of_importance: Confidence;
+  llm_baseline_likelihood: Confidence | null;
+
+  // Market fields — present only on market leaf nodes.
+  source?: MarketSource | null;
+  market_id?: string | null;
+  market_url?: string | null;
+  status?: MarketStatus | null;
+  outcome_options?: string[] | null;
+  time_series?: TimeSeriesPoint[] | null;
+
+  // Rollup field — present only on grouping nodes.
+  components?: ForecastComponent[] | null;
+}
+
+export interface Coverage {
+  sub_questions_proposed: number;
+  markets_found: number;
+  branches_dropped: number;
+}
+
 export interface ForecastSession {
   id: string;
   thread_id: string;
@@ -43,7 +83,10 @@ export interface ForecastSession {
   original_question: QuestionInput;
   operationalized_options: OperationalizedQuestion[];
   selected_operationalization_id: string | null;
+  core_question: string | null;
   user_feedback: string | null;
+  components: ForecastComponent[];
+  coverage: Coverage | null;
   modular_sub_questions: ModularSubQuestion[];
   final_summary: string | null;
   status: "intake" | "operationalizing" | "selecting" | "modularizing" | "complete";

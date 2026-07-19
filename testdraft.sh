@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 #
-# Minokane — testdraft launcher (FRONTEND ONLY).
+# Minokane — frontend-only dev server (Astro).
 #
-# Rough-draft prototype of the Ask / Think / Show flow. No backend, no API key,
-# fake data only. A separate person owns the backend + real data.
+# The Ask / Think / Show flow now lives at "/" and is wired to the live backend,
+# so it needs the API running too. Use ./run.sh (real LLMs) or ./test.sh
+# (zero-cost mock) to launch backend + frontend together.
 #
-# Serves the Astro dev server and points you at /testdraft.
+# This script starts ONLY the frontend — useful for pure UI/styling work; the
+# Ask -> Think -> Show data flow will error without a backend.
 #
 # Usage:
 #   ./testdraft.sh
@@ -22,7 +24,7 @@ if [ ! -d "$FRONTEND/node_modules" ] || [ ! -d "$FRONTEND/node_modules/d3" ]; th
   (cd "$FRONTEND" && npm install)
 fi
 
-echo "[testdraft] frontend-only draft — bound to 0.0.0.0"
-echo "[testdraft]   local:    http://localhost:4321/testdraft"
-echo "[testdraft]   network:  http://$(ipconfig getifaddr en0 2>/dev/null || echo '<your-ip>'):4321/testdraft"
+echo "[testdraft] frontend-only (no backend) — bound to 0.0.0.0"
+echo "[testdraft]   local:    http://localhost:4321/"
+echo "[testdraft]   network:  http://$(ipconfig getifaddr en0 2>/dev/null || echo '<your-ip>'):4321/"
 exec sh -c "cd '$FRONTEND' && npm run dev -- --host 0.0.0.0"

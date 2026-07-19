@@ -182,6 +182,18 @@ async def select_operationalization(
 
     graph = get_graph()
     config = {"configurable": {"thread_id": session.thread_id}}
+
+    # The graph uses an in-memory checkpointer, so a backend restart wipes the
+    # thread state saved during the Ask phase. Detect that and return a clear
+    # "start over" instead of a cryptic KeyError deep in the resume.
+    pre_state = graph.get_state(config)
+    if not pre_state.values or "raw_question" not in pre_state.values:
+        logger.warning("session_state_expired", extra={"session_id": session_id})
+        raise HTTPException(
+            status_code=409,
+            detail="Session state expired (backend restarted). Please start over from the question.",
+        )
+
     selected_dict = body.operationalized_question.model_dump(mode="json")
     resume_payload = {
         "selected_option": selected_dict,

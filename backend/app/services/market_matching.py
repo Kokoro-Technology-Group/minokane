@@ -45,20 +45,63 @@ def _dedupe_key(market: MarketCandidate) -> str:
     return f"{market.source}:{market.market_id}"
 
 
+# Question scaffolding / stopwords stripped before hitting the keyword-based
+# platform search — a full sentence like "Will a major AI lab win an IMO gold
+# medal by 2027?" returns nothing; "AI lab win IMO gold medal 2027" matches.
+_STOP = {
+    "will", "the", "a", "an", "of", "in", "on", "at", "to", "for", "and", "or",
+    "by", "be", "is", "are", "was", "were", "than", "that", "which", "with",
+    "from", "end", "before", "after", "least", "one", "any", "reach", "its",
+    "their", "have", "has", "had", "do", "does", "this", "these", "those", "as",
+    "it", "if", "when", "whether", "up", "down", "over", "under", "between",
+    "into", "about", "per", "more", "most", "some", "all",
+}
+
+
+def _ranked_keywords(text: str) -> list[str]:
+    """Salient search keywords, most-distinctive first (proper nouns/acronyms,
+    then longer words). Keyword platforms score better with fewer, rarer terms."""
+    import re
+    words = re.findall(r"[A-Za-z0-9']+", text)
+    content = [w for w in words if w.lower() not in _STOP and len(w) > 1]
+    ranked = sorted(content, key=lambda w: (not (w[0].isupper() or w.isupper()), -len(w)))
+    seen: set[str] = set()
+    out: list[str] = []
+    for w in ranked:
+        k = w.lower()
+        if k in seen:
+            continue
+        seen.add(k)
+        out.append(w)
+    return out or words
+
+
 async def _search_all(client: httpx.AsyncClient, term: str, limit: int) -> list[MarketCandidate]:
-    """Search both platforms concurrently and merge candidates."""
-    results = await asyncio.gather(
-        manifold.search_markets(client, term, limit),
-        metaculus.search_markets(client, term, limit),
-        return_exceptions=True,
-    )
-    merged: list[MarketCandidate] = []
-    for r in results:
-        if isinstance(r, list):
-            merged.extend(r)
-        elif isinstance(r, Exception):
-            logger.warning("market_search_error", extra={"term": term[:80], "error": str(r)})
-    return merged
+    """Search both platforms, broadening the query (fewer keywords) until we get
+    hits — keyword search returns nothing for a full sentence, and too many terms
+    over-constrains it."""
+    kws = _ranked_keywords(term)
+    tried: list[str] = []
+    for n in (6, 4, 3, 2):
+        query = " ".join(kws[:n])
+        if not query or query in tried:
+            continue
+        tried.append(query)
+        results = await asyncio.gather(
+            manifold.search_markets(client, query, limit),
+            metaculus.search_markets(client, query, limit),
+            return_exceptions=True,
+        )
+        merged: list[MarketCandidate] = []
+        for r in results:
+            if isinstance(r, list):
+                merged.extend(r)
+            elif isinstance(r, Exception):
+                logger.warning("market_search_error", extra={"term": query[:80], "error": str(r)})
+        if merged:
+            return merged
+    logger.info("market_search_empty", extra={"raw": term[:80], "tried": tried})
+    return []
 
 
 async def _fetch_series(client: httpx.AsyncClient, market: MarketCandidate) -> list[TimeSeriesPoint]:
@@ -109,6 +152,61 @@ class _Matcher:
                     extra={"source": candidate.source, "market_id": candidate.market_id},
                 )
         return None
+
+
+_LIKELIHOOD_P = {"high": 72.0, "medium": 50.0, "low": 28.0}
+
+
+def _baseline_series(likelihood: str) -> list[dict]:
+    """Synthetic weekly series around the LLM baseline — used when no real market
+    matches, so a branch is never dropped and Think/Show always render."""
+    import datetime as _dt
+    import math
+
+    target = _LIKELIHOOD_P.get(likelihood, 50.0)
+    n = 16
+    start = _dt.date.today() - _dt.timedelta(weeks=n - 1)
+    pts = []
+    for i in range(n):
+        frac = i / (n - 1)
+        val = 45.0 + (target - 45.0) * frac + math.sin(i * 1.3) * 3.0
+        pts.append({"date": (start + _dt.timedelta(weeks=i)).isoformat(), "probability": round(max(1.0, min(99.0, val)), 1)})
+    return pts
+
+
+def _baseline_fields(likelihood: str) -> dict:
+    return {
+        "source": "estimate",
+        "market_id": None,
+        "market_url": None,
+        "status": "estimate",
+        "outcome_options": ["Yes", "No"],
+        "time_series": _baseline_series(likelihood),
+    }
+
+
+def _baseline_minor(sub: dict) -> dict:
+    return {
+        "id": str(uuid4()),
+        "type": "minor_category",
+        "component": sub.get("text", "Sub-question"),
+        "domain_tag": sub.get("domain_tag", "other"),
+        "confidence_of_importance": sub.get("confidence_of_importance", "medium"),
+        "llm_baseline_likelihood": sub.get("llm_baseline_likelihood", "medium"),
+        **_baseline_fields(sub.get("llm_baseline_likelihood", "medium")),
+    }
+
+
+def _baseline_atomic(major: dict) -> dict:
+    return {
+        "id": str(uuid4()),
+        "type": "major_category",
+        "component": major.get("component", "Question"),
+        "domain_tag": major.get("domain_tag", "other"),
+        "confidence_of_importance": major.get("confidence_of_importance", "medium"),
+        "llm_baseline_likelihood": major.get("llm_baseline_likelihood", "medium"),
+        **_baseline_fields(major.get("llm_baseline_likelihood", "medium")),
+    }
 
 
 def _market_fields(market: MarketCandidate, series: list[TimeSeriesPoint]) -> dict:
@@ -203,7 +301,8 @@ async def build_forecast_tree(
                     components.append(_atomic_major_node(major, match[0], match[1]))
                     markets_found += 1
                 else:
-                    branches_dropped += 1
+                    # never drop — fall back to a baseline estimate node
+                    components.append(_baseline_atomic(major))
                 continue
 
             subs = major.get("ideal_subquestions") or []
@@ -214,19 +313,18 @@ async def build_forecast_tree(
 
             minors: list[dict] = []
             for sub, match in zip(subs, results):
-                if not match:
-                    continue
-                key = _dedupe_key(match[0])
-                if key in used:  # first/highest-importance placement wins (PRD §6.2)
-                    continue
-                used.add(key)
-                minors.append(_minor_node(sub, match[0], match[1]))
-                markets_found += 1
+                if match and _dedupe_key(match[0]) not in used:
+                    used.add(_dedupe_key(match[0]))
+                    minors.append(_minor_node(sub, match[0], match[1]))
+                    markets_found += 1
+                else:
+                    # no real market (or dup) → keep the sub as a baseline leaf
+                    minors.append(_baseline_minor(sub))
 
             if minors:
                 components.append(_rollup_major_node(major, minors))
             else:
-                branches_dropped += 1  # rollup with zero surviving markets (PRD §6.7)
+                branches_dropped += 1
     finally:
         if owns_client:
             await client.aclose()
