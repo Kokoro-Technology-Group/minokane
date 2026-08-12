@@ -142,6 +142,20 @@ async def submit_question(
     return session
 
 
+# NOTE: must be registered before "/{session_id}" so "latest" is not captured
+# as a session id.
+@router.get("/latest", response_model=ForecastSession)
+async def get_latest_session(
+    _: str = Depends(verify_api_key),
+    store: JSONStore = Depends(get_store),
+) -> ForecastSession:
+    """Return the most recently saved session (the user's latest). 404 if none."""
+    session = await store.get_latest_session()
+    if session is None:
+        raise HTTPException(status_code=404, detail="No sessions yet")
+    return session
+
+
 @router.get("/{session_id}", response_model=ForecastSession)
 async def get_session(
     session_id: str,

@@ -45,6 +45,31 @@ def test_get_session_not_found():
     assert response.status_code == 404
 
 
+def test_get_latest_requires_api_key():
+    response = client.get("/api/questions/latest")
+    assert response.status_code == 403
+
+
+def test_get_latest_session_returns_most_recent():
+    """A freshly submitted session becomes the 'latest'; GET /latest returns it.
+
+    Also guards route ordering — "latest" must not be captured by /{session_id}.
+    """
+    intro = "Message received. Canned intro."
+    with patch("app.agents.personas.operationalizer.run_test_intro", return_value=intro), \
+         patch("app.agents.personas.critic.run_test_intro", return_value=intro), \
+         patch("app.agents.personas.modularizer.run_test_intro", return_value=intro):
+        submit = client.post(
+            "/api/questions", headers=AUTH_HEADERS, json={"raw_question": "TEST"}
+        )
+    assert submit.status_code == 200, submit.text
+    session_id = submit.json()["id"]
+
+    latest = client.get("/api/questions/latest", headers=AUTH_HEADERS)
+    assert latest.status_code == 200, latest.text
+    assert latest.json()["id"] == session_id
+
+
 def test_select_on_missing_session():
     from app.models.schemas import OperationalizedQuestion
     from datetime import datetime, timezone

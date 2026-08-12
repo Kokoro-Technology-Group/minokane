@@ -37,8 +37,8 @@ export interface ModularSubQuestion {
 }
 
 export type Confidence = "high" | "medium" | "low";
-export type MarketSource = "metaculus" | "manifold";
-export type MarketStatus = "open" | "resolved" | "closed";
+export type MarketSource = "metaculus" | "manifold" | "estimate";
+export type MarketStatus = "open" | "resolved" | "closed" | "estimate";
 
 export interface TimeSeriesPoint {
   date: string; // "YYYY-MM-DD"
@@ -113,6 +113,11 @@ export function submitQuestion(input: QuestionInput): Promise<ForecastSession> {
 
 export function getSession(id: string): Promise<ForecastSession> {
   return request<ForecastSession>(`/questions/${id}`);
+}
+
+/** The most recently saved session on the backend. Rejects (404) if none. */
+export function getLatestSession(): Promise<ForecastSession> {
+  return request<ForecastSession>("/questions/latest");
 }
 
 export function selectOperationalization(

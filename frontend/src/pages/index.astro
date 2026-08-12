@@ -40,6 +40,9 @@ const phases = [
 </Layout>
 
 <script>
+  import { getSession, getForecast, setSession, getPersistedToken } from "../scripts/session-store";
+  import { getLatestSession } from "../scripts/api";
+
   type Phase = "ask" | "think" | "show";
   const ORDER: Phase[] = ["ask", "think", "show"];
 
@@ -82,6 +85,48 @@ const phases = [
       if (visited.has(p)) goto(p);
     });
   });
+
+  // ─── Resume the most recent session on load ────────────────────────────────
+  // session-store hydrates synchronously from localStorage at import time, so a
+  // reload lands the user back on their finished forecast. If localStorage was
+  // cleared but this browser held a session before (cookie token survives), fall
+  // back to the backend's most-recent session (GET /api/questions/latest).
+  function resumeShow() {
+    visited.add("think");
+    goto("show");
+  }
+
+  function bootResume() {
+    const s = getSession();
+    if (s) {
+      // Have a locally cached session: resume a finished forecast; otherwise
+      // (mid-flow) respect where we are and stay on Ask.
+      if (s.status === "complete" && getForecast()) resumeShow();
+      return;
+    }
+    // No cached session, but a prior token survives in the cookie → ask the
+    // backend for the most recent one.
+    if (getPersistedToken()) {
+      getLatestSession()
+        .then((latest) => {
+          if (latest.status === "complete") {
+            setSession(latest);
+            resumeShow();
+          }
+        })
+        .catch(() => {
+          /* 404 (no sessions) or offline — stay on Ask */
+        });
+    }
+  }
+
+  // Defer to DOMContentLoaded so every phase island has registered its
+  // `testdraft:entered` listener before we navigate.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootResume);
+  } else {
+    bootResume();
+  }
 </script>
 
 <style>
